@@ -1,0 +1,1586 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="teal">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GIS Helper — Coordinate &amp; Grid Converter</title>
+  <meta name="description" content="Convert between latitude/longitude, MGRS/USNG grid (6, 8, 10 digit) and ArcGIS XY (UTM) coordinates with an interactive map." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+
+<!-- Ambient glass background blobs -->
+<div class="ambient" aria-hidden="true">
+  <span class="blob blob-1"></span>
+  <span class="blob blob-2"></span>
+  <span class="blob blob-3"></span>
+</div>
+
+<!-- ===================== TOP BAR ===================== -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M2 12h20"/>
+        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <h1>GIS Helper</h1>
+      <p>Lat/Long &nbsp;⇄&nbsp; GRID Reference &nbsp;⇄&nbsp; XY Coordinates</p>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <div class="status" id="status">Ready</div>
+
+    <!-- DEPLOYMENT / ZONE TOGGLE -->
+    <div class="topbar-actions">
+      <button class="icon-btn deploy-toggle" id="deploy-toggle" aria-label="Deployments" title="Deployments">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+        </svg>
+        <span class="icon-btn-label">Deploy</span>
+      </button>
+      <button class="icon-btn zone-toggle" id="zone-toggle" aria-label="Zones" title="Zones">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="1 6 1 22 13 18 22 22 22 2 13 6 1 6"/>
+          <line x1="8" y1="2" x2="8" y2="18"/>
+          <line x1="16" y1="6" x2="16" y2="22"/>
+        </svg>
+        <span class="icon-btn-label">Zones</span>
+      </button>
+    </div>
+
+    <!-- THEME PICKER -->
+    <div class="picker-wrap" id="theme-picker-wrap">
+      <button class="icon-btn picker-btn" id="theme-btn" aria-label="Choose theme" title="Choose theme">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+          <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+          <circle cx="8.5"  cy="7.5"  r=".5" fill="currentColor"/>
+          <circle cx="6.5"  cy="12.5" r=".5" fill="currentColor"/>
+          <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+        </svg>
+        <span class="icon-btn-label">Theme</span>
+      </button>
+
+      <div class="theme-menu" id="theme-menu">
+        <div class="theme-menu-header">Appearance</div>
+
+        <button class="theme-item" data-theme="teal">
+          <div class="theme-preview preview-teal">
+            <span class="pv-bg"></span><span class="pv-glass"></span><span class="pv-accent"></span>
+          </div>
+          <div class="theme-info">
+            <h5>Tactical Teal</h5>
+            <p>Deep teal with electric mint glow</p>
+          </div>
+          <svg class="theme-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </button>
+
+        <button class="theme-item" data-theme="violet">
+          <div class="theme-preview preview-violet">
+            <span class="pv-bg"></span><span class="pv-glass"></span><span class="pv-accent"></span>
+          </div>
+          <div class="theme-info">
+            <h5>Obsidian Violet</h5>
+            <p>Charcoal black with rich violet glow</p>
+          </div>
+          <svg class="theme-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </button>
+
+        <button class="theme-item" data-theme="navy">
+          <div class="theme-preview preview-navy">
+            <span class="pv-bg"></span><span class="pv-glass"></span><span class="pv-accent"></span>
+          </div>
+          <div class="theme-info">
+            <h5>Aurora Navy</h5>
+            <p>Enterprise navy with emerald authority</p>
+          </div>
+          <svg class="theme-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </button>
+
+        <button class="theme-item" data-theme="amber">
+          <div class="theme-preview preview-amber">
+            <span class="pv-bg"></span><span class="pv-glass"></span><span class="pv-accent"></span>
+          </div>
+          <div class="theme-info">
+            <h5>Solar Amber</h5>
+            <p>Warm espresso with sunset amber warmth</p>
+          </div>
+          <svg class="theme-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ABOUT (guide + creator, tabbed) -->
+    <button class="icon-btn about-btn" id="about-btn" aria-label="About GIS Helper" title="About GIS Helper">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="16" x2="12" y2="12"/>
+        <line x1="12" y1="8" x2="12.01" y2="8"/>
+      </svg>
+      <span class="icon-btn-label">About</span>
+    </button>
+  </div>
+</header>
+
+<!-- ===================== LAYOUT ===================== -->
+<main class="layout">
+
+  <aside class="sidebar">
+
+    <section class="card">
+      <h2><span class="step">1</span> Enter a location</h2>
+
+      <label class="lbl" for="query">Any format — name, lat/lon, grid reference or XY</label>
+      <input id="query" class="input" type="text" autocomplete="off" spellcheck="false"
+             placeholder="Statue of Liberty | 40.6892, -74.0445 | 18T WL 80735 04695" />
+
+      <div class="grid2">
+        <div>
+          <label class="lbl" for="format">Format</label>
+          <select id="format" class="input">
+            <option value="auto">Auto-detect</option>
+            <option value="place">Place name</option>
+            <option value="latlon">Latitude / Longitude</option>
+            <option value="mgrs">MGRS / USNG grid</option>
+            <option value="utm">ArcGIS XY (UTM)</option>
+          </select>
+        </div>
+        <div>
+          <label class="lbl" for="zone">UTM zone <em>(for XY)</em></label>
+          <input id="zone" class="input" type="text" placeholder="e.g. 18N" />
+        </div>
+      </div>
+
+      <button id="go" class="btn btn-primary">Locate &amp; convert</button>
+      <p class="note">Tip: click anywhere on the map to capture a point.</p>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">2</span> Coordinate dashboard</h2>
+
+      <div class="place" id="place">No location selected</div>
+
+      <ul class="readout">
+        <li><span>Latitude / Longitude (DD)</span><b id="o-latlon">—</b></li>
+        <li><span>Latitude / Longitude (DMS)</span><b id="o-dms">—</b></li>
+        <li><span>ArcGIS XY — UTM E / N</span><b id="o-utm">—</b></li>
+        <li><span>Grid — MGRS 6-digit (100 m)</span><b id="o-m6">—</b></li>
+        <li><span>Grid — MGRS 8-digit (10 m)</span><b id="o-m8">—</b></li>
+        <li><span>Grid — MGRS 10-digit (1 m)</span><b id="o-m10">—</b></li>
+      </ul>
+
+      <button id="copy" class="btn btn-ghost">Copy results as JSON</button>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">3</span> Live cursor</h2>
+      <p class="note">Hover over the map to preview · click to lock a point.</p>
+
+      <ul class="readout compact">
+        <li><span>Lat / Lon</span><b id="l-latlon">—</b></li>
+        <li><span>ArcGIS XY</span><b id="l-utm">—</b></li>
+        <li><span>MGRS 6-digit</span><b id="l-m6">—</b></li>
+        <li><span>MGRS 8-digit</span><b id="l-m8">—</b></li>
+      </ul>
+    </section>    <!-- ===================== DEPLOYMENTS ===================== -->
+    <section class="card card-deployments" id="deploy-card">
+      <h2><span class="step">4</span> Deployments</h2>
+
+      <div class="deploy-type-row">
+        <div class="deploy-type-head">
+          <label class="lbl" for="deploy-type">Unit type</label>
+          <button type="button" id="types-manage-btn" class="link-btn" title="Create or edit your own unit types">
+            Manage types
+          </button>
+        </div>
+        <select id="deploy-type" class="input deploy-select">
+          <option value="company-hq">Company HQ</option>
+          <option value="support-platoon">Support Platoon</option>
+          <option value="sigint-platoon">SIGINT Platoon</option>
+          <option value="isr-platoon">ISR Platoon</option>
+          <option value="humint-platoon">HUMINT Platoon</option>
+          <option value="special-task">Special Task</option>
+        </select>
+      </div>
+
+      <div class="deploy-grid">
+        <div>
+          <label class="lbl" for="deploy-icon">Icon</label>
+          <select id="deploy-icon" class="input deploy-select"></select>
+        </div>
+        <div>
+          <label class="lbl" for="deploy-color">Color</label>
+          <div class="color-picker-wrap">
+            <input id="deploy-color" type="color" class="input color-picker" value="#00F5D4" />
+            <input id="deploy-color-hex" type="text" class="input color-hex" value="#00F5D4" maxlength="7" />
+          </div>
+        </div>
+      </div>
+
+      <div class="deploy-preview-row">
+        <span class="deploy-preview-label">Preview</span>
+        <div class="deploy-preview" id="deploy-preview"></div>
+        <span class="deploy-preview-hint" id="deploy-preview-hint"></span>
+      </div>
+
+      <div class="deploy-grid">
+        <div id="commander-field">
+          <label class="lbl" for="deploy-commander">Commander</label>
+          <input id="deploy-commander" class="input" type="text" placeholder="Name / callsign" />
+        </div>
+        <div>
+          <label class="lbl" for="deploy-troops">Troops</label>
+          <input id="deploy-troops" class="input" type="number" min="0" value="0" />
+        </div>
+      </div>
+
+      <div class="deploy-grid">
+        <div>
+          <label class="lbl" for="deploy-vehicles">Vehicles</label>
+          <input id="deploy-vehicles" class="input" type="text" placeholder="e.g. 2, or BTR-80 x1 + truck x3" value="" />
+        </div>
+        <div>
+          <label class="lbl" for="deploy-arms">Arms &amp; Ammo</label>
+          <input id="deploy-arms" class="input" type="text" placeholder="e.g. AKM x20, RPG-7 x3" />
+        </div>
+      </div>
+
+      <div class="deploy-grid" style="grid-template-columns:1fr;">
+        <div>
+          <label class="lbl" for="deploy-equip">Special Equipment</label>
+          <textarea id="deploy-equip" class="input input-textarea" rows="2" placeholder="Night vision, drones, comms gear…"></textarea>
+        </div>
+      </div>
+
+      <div class="deploy-actions">
+        <button id="deploy-add-btn" class="btn btn-primary">Place on map</button>
+        <button id="deploy-clear-btn" class="btn btn-ghost">Clear form</button>
+      </div>
+
+      <div class="deploy-list" id="deploy-list" role="list" aria-label="Placed deployments, drag to reorder">
+        <div class="deploy-empty">No deployments marked yet. Place one on the map to begin.</div>
+      </div>
+    </section>
+
+    <!-- ===================== ZONES ===================== -->
+    <section class="card card-zones" id="zone-card">
+      <h2><span class="step">5</span> Zones</h2>
+
+      <div class="zone-draw-row">
+        <label class="lbl" for="zone-color">Zone color</label>
+        <div class="color-picker-wrap">
+          <input id="zone-color" type="color" class="input color-picker" value="#FF6B6B" />
+          <input id="zone-color-hex" type="text" class="input color-hex" value="#FF6B6B" maxlength="7" />
+        </div>
+      </div>
+      <div class="zone-grid">
+        <div>
+          <label class="lbl" for="zone-name">Zone name</label>
+          <input id="zone-name" class="input" type="text" placeholder="e.g. Alpha Sector" />
+        </div>
+        <div>
+          <label class="lbl" for="zone-opacity">Fill opacity</label>
+          <input id="zone-opacity" class="input" type="range" min="0.1" max="0.8" step="0.05" value="0.35" />
+          <span class="range-val" id="zone-opacity-val">0.35</span>
+        </div>
+      </div>
+
+      <div class="zone-actions">
+        <button id="zone-draw-btn" class="btn btn-primary">&#9671; Start drawing zone</button>
+        <button id="zone-stop-btn" class="btn btn-ghost">&#9632; Stop drawing</button>
+        <button id="zone-clear-all-btn" class="btn btn-ghost">Clear all zones</button>
+      </div>
+
+      <p class="note">Click on the map to add polygon vertices. Double-click or press Stop to finish the zone.</p>
+
+      <div class="zone-list" id="zone-list">
+        <div class="zone-empty">No zones drawn yet.</div>
+      </div>
+    </section>
+
+    <!-- ===================== DATA MANAGEMENT ===================== -->
+    <section class="card card-data" id="data-card">
+      <h2><span class="step">6</span> Save &amp; Share</h2>
+
+      <div class="data-actions">
+        <button id="data-save-btn" class="btn btn-primary">&#128190; Save to browser</button>
+        <button id="data-load-btn" class="btn btn-ghost">&#128194; Load from browser</button>
+      </div>
+
+      <div class="data-divider"></div>
+
+      <div class="data-actions">
+        <button id="data-copy-btn" class="btn btn-ghost">&#128203; Copy all data</button>
+        <button id="data-export-btn" class="btn btn-primary">&#128230; Export JSON file</button>
+      </div>
+
+      <div class="data-actions">
+        <button id="data-import-btn" class="btn btn-ghost">&#128229; Import JSON file</button>
+        <input type="file" id="data-import-file" accept=".json,application/json" style="display:none;" />
+      </div>
+
+      <p class="note">Or drop a saved <code>.json</code> file anywhere on the page to load it.</p>
+
+      <div class="data-divider"></div>
+
+      <div class="export-opts">
+        <div class="export-opts-head">Export options</div>
+
+        <div class="export-opt">
+          <label class="lbl" for="export-frame">Frame</label>
+          <select id="export-frame" class="input">
+            <option value="all">All deployments, zones &amp; indicator</option>
+            <option value="view">Whatever the map is showing</option>
+            <option value="deployments">Deployments only</option>
+            <option value="zones">Zones only</option>
+            <option value="indicator">Map indicator only</option>
+          </select>
+        </div>
+
+        <div class="export-opt">
+          <label class="lbl" for="export-scale">Scale bar</label>
+          <select id="export-scale" class="input">
+            <option value="both">Metric + imperial</option>
+            <option value="metric">Metric only</option>
+            <option value="imperial">Imperial only</option>
+            <option value="none">Hidden</option>
+          </select>
+        </div>
+
+        <label class="check-row" for="export-rotate">
+          <input type="checkbox" id="export-rotate" />
+          <span>Rotate to fit <em>&mdash; spin the plan onto its longest axis so a long or diagonal plan fills the frame</em></span>
+        </label>
+
+        <div class="export-opt">
+          <label class="lbl" for="export-title">Plan title <em>(optional)</em></label>
+          <input id="export-title" class="input" type="text" maxlength="60" placeholder="e.g. Exercise Ironclad" />
+        </div>
+
+        <div class="export-opt">
+          <label class="lbl" for="export-date">Plan date <em>(optional)</em></label>
+          <input id="export-date" class="input" type="date" />
+        </div>
+
+        <p class="note">Options are remembered in this browser. The title and date print on the
+          report header only &mdash; they are not burned into the PNG.</p>
+      </div>
+
+      <div class="data-actions export-actions">
+        <button id="report-print-btn" class="btn btn-ghost">&#128424; Print report</button>
+        <button id="report-png-btn" class="btn btn-ghost">&#128444; Export PNG</button>
+      </div>
+
+      <p class="note">Prints a one-page plan sheet (or save it as PDF) and exports the
+        same picture as a PNG.</p>
+
+      <div class="data-divider"></div>
+
+      <div class="data-status" id="data-status">
+        <span class="data-status-dot"></span>
+        <span id="data-status-text">No saved data</span>
+      </div>
+    </section>
+
+  </aside>
+
+  <section class="map-panel">
+    <div id="map"></div>
+
+    <div class="layer-ctrl">
+      <button class="layer-toggle" id="layer-toggle" title="Change base map" aria-label="Change base map">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"/>
+          <polyline points="2 17 12 22 22 17"/>
+          <polyline points="2 12 12 17 22 12"/>
+        </svg>
+      </button>
+
+      <div class="layer-menu" id="layer-menu">
+        <div class="layer-menu-header">Base map</div>
+        <button class="layer-item active" data-layer="standard">
+          <span class="layer-swatch sw-standard"></span><span>Standard (OSM)</span>
+        </button>
+        <button class="layer-item" data-layer="satellite">
+          <span class="layer-swatch sw-satellite"></span><span>Satellite</span>
+        </button>
+        <button class="layer-item" data-layer="terrain">
+          <span class="layer-swatch sw-terrain"></span><span>Terrain</span>
+        </button>
+        <button class="layer-item" data-layer="humanitarian">
+          <span class="layer-swatch sw-humanitarian"></span><span>Humanitarian</span>
+        </button>
+        <button class="layer-item" data-layer="dark">
+          <span class="layer-swatch sw-dark"></span><span>Dark (CARTO)</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="map-hud" id="hud">
+      <div class="hud-header"><span class="hud-dot"></span> Cursor position</div>
+      <div class="hud-row"><span class="hud-label">Lat / Lon</span><span class="hud-value" id="h-latlon">—</span></div>
+      <div class="hud-row"><span class="hud-label">ArcGIS XY</span><span class="hud-value" id="h-utm">—</span></div>
+      <div class="hud-row"><span class="hud-label">MGRS 6</span><span class="hud-value" id="h-m6">—</span></div>
+      <div class="hud-row"><span class="hud-label">MGRS 8</span><span class="hud-value" id="h-m8">—</span></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===================== ABOUT MODAL (tabbed) ===================== -->
+<div class="modal-overlay" id="about-modal" role="dialog" aria-modal="true" aria-labelledby="about-title">
+  <div class="modal about-modal" role="document">
+    <header class="modal-header">
+      <div class="modal-title">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M2 12h20"/>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 id="about-title">About GIS Helper</h2>
+          <p>What it does, how to use it, and who built it.</p>
+        </div>
+      </div>
+      <button class="modal-close" id="about-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </header>
+
+    <!-- Tab bar -->
+    <div class="tabbar" role="tablist" aria-label="About sections">
+      <button class="tab-btn active" role="tab" id="tab-overview" data-tab="overview"
+              aria-controls="panel-overview" aria-selected="true">Overview</button>
+      <button class="tab-btn" role="tab" id="tab-guide" data-tab="guide"
+              aria-controls="panel-guide" aria-selected="false" tabindex="-1">Guide</button>
+      <button class="tab-btn" role="tab" id="tab-creator" data-tab="creator"
+              aria-controls="panel-creator" aria-selected="false" tabindex="-1">Creator</button>
+      <span class="tab-ink" id="tab-ink" aria-hidden="true"></span>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- ---------------- OVERVIEW ---------------- -->
+      <div class="tab-panel active" id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+
+        <section class="help-section">
+          <h3><span class="pill">Overview</span> What GIS Helper does</h3>
+          <p>
+            <b>GIS Helper</b> is a coordinate conversion <i>and</i> tactical-marking tool.
+            Give it <b>any one</b> of four coordinate systems and it returns the other three,
+            instantly, on an interactive map — then let you plot units, zones and
+            order of battle directly onto that same map.
+          </p>
+
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>⇄ Latitude / Longitude</h4>
+              <p>Decimal degrees (DD) and degrees / minutes / seconds (DMS), with N/S/E/W hemisphere.</p>
+            </div>
+            <div class="help-tile">
+              <h4>⇄ MGRS / USNG grid</h4>
+              <p>Military grid references at 6-digit (100 m), 8-digit (10 m) and 10-digit (1 m) precision.</p>
+            </div>
+            <div class="help-tile">
+              <h4>⇄ ArcGIS XY (UTM)</h4>
+              <p>Easting / Northing in metres, with the UTM zone number and hemisphere.</p>
+            </div>
+            <div class="help-tile">
+              <h4>⇄ Place names</h4>
+              <p>Search any city, address or landmark by name and get every format back.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h3><span class="pill">Overview</span> Tactical marking layer</h3>
+          <p>
+            Beyond conversion, GIS Helper doubles as a lightweight <b>operational map</b>.
+            Plot friendly units, define zones, and share the whole picture with anyone
+            on your team — no account, no server, no install.
+          </p>
+
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>&#9873; Six unit types</h4>
+              <p>
+                <b>Company HQ</b> (flag), <b>Support Platoon</b> (armoured vehicle),
+                <b>SIGINT Platoon</b> (antenna), <b>ISR Platoon</b> (drone),
+                <b>HUMINT Platoon</b> (detective) and <b>Special Task</b>
+                (star, diamond or circle) — plus any <b>custom types</b>
+                you define yourself.
+              </p>
+            </div>
+            <div class="help-tile">
+              <h4>&#9633; Polygon zones</h4>
+              <p>
+                Draw named, colour-coded zones with an <b>automatic area calculation</b>
+                in m&sup2; or km&sup2;. Each type of zone can carry its own name,
+                colour and fill opacity.
+              </p>
+            </div>
+            <div class="help-tile">
+              <h4>&#9878; Full unit details</h4>
+              <p>
+                Each deployment records commander, troop strength, vehicles,
+                arms &amp; ammo, and special equipment — all visible in the marker popup.
+              </p>
+            </div>
+            <div class="help-tile">
+              <h4>&#128190; Saved &amp; shareable</h4>
+              <p>
+                Markings persist in your browser automatically, and can be exported
+                to or imported from a JSON file so the whole team sees the same map.
+              </p>
+            </div>
+          </div>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p>Everything lives in your browser — nothing is uploaded anywhere.
+               Use <b>Export JSON file</b> if you need to move markings to another machine.</p>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h3><span class="pill">Why</span> Built for the field, not the form</h3>
+          <p>
+            Most online converters go one direction, quietly drop the hemisphere, and make you
+            guess a UTM zone. GIS Helper converts <b>everything at once</b> — so a lat/lon from a
+            phone, an MGRS from a field form, and an XY for ArcGIS all stay in sync on the same
+            screen. Nothing to install, nothing to sign up for.
+          </p>
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p>New here? Open the <b>Guide</b> tab for a step-by-step walkthrough with pictures.</p>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h3><span class="pill">Theme</span> Four glass appearances</h3>
+          <p>Click the <b>Theme</b> button (the palette icon) in the top bar. Each theme retints the
+             whole interface — background, glass, accent glow and ambient blobs:</p>
+
+          <div class="theme-grid">
+            <div class="theme-card tc-teal">
+              <div class="theme-card-swatches">
+                <span style="background:#030F12"></span>
+                <span style="background:#092328"></span>
+                <span style="background:#00F5D4"></span>
+              </div>
+              <div class="theme-card-body">
+                <h4>Tactical Teal</h4>
+                <p>Mission-control clarity. Ultra-dark teal base with an electric mint glow for active states and CTAs.</p>
+              </div>
+            </div>
+
+            <div class="theme-card tc-violet">
+              <div class="theme-card-swatches">
+                <span style="background:#0B0C10"></span>
+                <span style="background:#181925"></span>
+                <span style="background:#6C5CE7"></span>
+              </div>
+              <div class="theme-card-body">
+                <h4>Obsidian Violet</h4>
+                <p>Premium creative dark. Charcoal base with a rich violet glow and cool indigo glass tint.</p>
+              </div>
+            </div>
+
+            <div class="theme-card tc-navy">
+              <div class="theme-card-swatches">
+                <span style="background:#0A192F"></span>
+                <span style="background:#112240"></span>
+                <span style="background:#10B981"></span>
+              </div>
+              <div class="theme-card-body">
+                <h4>Aurora Navy</h4>
+                <p>Enterprise command. Classic navy with vibrant emerald accents for authoritative dashboards.</p>
+              </div>
+            </div>
+
+            <div class="theme-card tc-amber">
+              <div class="theme-card-swatches">
+                <span style="background:#120E0E"></span>
+                <span style="background:#241B18"></span>
+                <span style="background:#F97316"></span>
+              </div>
+              <div class="theme-card-body">
+                <h4>Solar Amber</h4>
+                <p>Warm espresso tones with sunset-orange accents and a gold-tinged glass edge.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p>Your selected theme is remembered in this browser and applied automatically
+               on your next visit.</p>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ---------------- GUIDE ---------------- -->
+      <div class="tab-panel" id="panel-guide" role="tabpanel" aria-labelledby="tab-guide">
+
+        <section class="help-section">
+          <h3><span class="pill">Step 1</span> Enter a location</h3>
+          <p>Type a value into the input box and either press <kbd>Enter</kbd> or click
+             <b>Locate &amp; convert</b>. The tool supports four input formats.</p>
+
+          <figure class="illus-fig">
+            <svg class="illus" viewBox="0 0 420 236" role="img"
+                 aria-label="The Step 1 input card: a text field, a format menu, a UTM zone field and the Locate and convert button.">
+              <rect class="il-panel" x="6" y="6" width="408" height="224" rx="16"/>
+              <rect class="il-stroke" x="6.5" y="6.5" width="407" height="223" rx="15.5"/>
+
+              <rect class="il-accent" x="24" y="22" width="22" height="22" rx="7"/>
+              <text class="il-badge il-on-accent" x="35" y="37" text-anchor="middle">1</text>
+              <text class="il-cap2" x="56" y="37">ENTER A LOCATION</text>
+
+              <rect class="il-line" x="24" y="58" width="168" height="6" rx="3"/>
+              <rect class="il-field" x="24" y="72" width="372" height="36" rx="10"/>
+              <text class="il-value" x="38" y="95">Statue of Liberty, New York</text>
+
+              <rect class="il-line" x="24" y="120" width="52" height="5" rx="2.5"/>
+              <rect class="il-line" x="218" y="120" width="72" height="5" rx="2.5"/>
+              <rect class="il-field" x="24" y="132" width="178" height="34" rx="10"/>
+              <text class="il-muted-text" x="38" y="154">Auto-detect</text>
+              <rect class="il-field" x="218" y="132" width="178" height="34" rx="10"/>
+              <text class="il-muted-text" x="232" y="154">e.g. 18N</text>
+
+              <rect class="il-accent" x="24" y="176" width="372" height="36" rx="10"/>
+              <text class="il-cta il-on-accent" x="210" y="199" text-anchor="middle">Locate &amp; convert</text>
+            </svg>
+            <figcaption><b>Figure 1</b> — Step 1, the input card. Leave <b>Format</b> on
+              <em>Auto-detect</em> and the status pill in the top bar tells you what it recognised as you type.</figcaption>
+          </figure>
+
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>Place name</h4>
+              <p>Any free-text search — cities, addresses, landmarks.</p>
+              <code>Statue of Liberty, New York</code>
+              <code>Eiffel Tower</code>
+            </div>
+            <div class="help-tile">
+              <h4>Latitude / Longitude</h4>
+              <p>Decimal degrees or DMS, with or without hemisphere letters.</p>
+              <code>40.6892, -74.0445</code>
+              <code>40° 41' 21" N, 74° 02' 40" W</code>
+            </div>
+            <div class="help-tile">
+              <h4>MGRS / USNG grid</h4>
+              <p>6-digit (100 m), 8-digit (10 m) or 10-digit (1 m) precision.</p>
+              <code>18T WL 807 046</code>
+              <code>18T WL 80735 04695</code>
+            </div>
+            <div class="help-tile">
+              <h4>ArcGIS XY (UTM)</h4>
+              <p>Easting / Northing in metres. Type the zone in the box next to
+                 the format menu, or include it inline.</p>
+              <code>580736, 4504695 &nbsp;+ zone 18N</code>
+              <code>18N 580736 4504695</code>
+            </div>
+          </div>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p><b>Auto-detect</b> is on by default — the status pill in the top bar shows
+               which format the tool has recognised as you type.</p>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h3><span class="pill">Step 2</span> Coordinate dashboard</h3>
+          <p>Once a location is found, every format is shown at once — <b>and every row is clickable</b>,
+             so you can copy a single value instead of the whole set.</p>
+
+          <figure class="illus-fig">
+            <svg class="illus" viewBox="0 0 420 250" role="img"
+                 aria-label="The Step 2 coordinate dashboard card: a place name bar followed by rows for decimal degrees, DMS, UTM XY and MGRS grid.">
+              <rect class="il-panel" x="6" y="6" width="408" height="238" rx="16"/>
+              <rect class="il-stroke" x="6.5" y="6.5" width="407" height="237" rx="15.5"/>
+
+              <rect class="il-accent" x="24" y="22" width="22" height="22" rx="7"/>
+              <text class="il-badge il-on-accent" x="35" y="37" text-anchor="middle">2</text>
+              <text class="il-cap2" x="56" y="37">COORDINATE DASHBOARD</text>
+
+              <rect class="il-accent-soft" x="24" y="56" width="372" height="30" rx="10"/>
+              <text class="il-value" x="38" y="75">Statue of Liberty, New York, USA</text>
+
+              <rect class="il-field" x="24" y="94" width="372" height="34" rx="10"/>
+              <text class="il-label" x="36" y="108">LAT / LON (DD)</text>
+              <text class="il-mono" x="36" y="122">40.689200° N, 74.044500° W</text>
+
+              <rect class="il-field" x="24" y="134" width="372" height="34" rx="10"/>
+              <text class="il-label" x="36" y="148">LAT / LON (DMS)</text>
+              <text class="il-mono" x="36" y="162">40°41'21.12"N  74°02'40.20"W</text>
+
+              <rect class="il-field" x="24" y="174" width="372" height="34" rx="10"/>
+              <text class="il-label" x="36" y="188">ARCGIS XY — UTM E / N</text>
+              <text class="il-mono" x="36" y="202">18N  580,736 E  4,504,695 N</text>
+
+              <rect class="il-field" x="24" y="214" width="372" height="26" rx="10"/>
+              <text class="il-label" x="36" y="231">GRID — MGRS 10-DIGIT (1 M)</text>
+              <text class="il-mono" x="384" y="231" text-anchor="end">18T WL 80735 04695</text>
+            </svg>
+            <figcaption><b>Figure 2</b> — Step 2, the dashboard. Hover a row to highlight it;
+              click it to copy that one value to the clipboard.</figcaption>
+          </figure>
+
+          <ul class="help-list">
+            <li><b>Latitude / Longitude (DD)</b> — decimal degrees with N/S/E/W.</li>
+            <li><b>Latitude / Longitude (DMS)</b> — degrees, minutes, seconds.</li>
+            <li><b>ArcGIS XY</b> — UTM Easting &amp; Northing in metres, with zone &amp; hemisphere.</li>
+            <li><b>MGRS 6-digit</b> — a 100 m × 100 m square.</li>
+            <li><b>MGRS 8-digit</b> — a 10 m × 10 m square.</li>
+            <li><b>MGRS 10-digit</b> — a 1 m × 1 m square.</li>
+          </ul>
+          <p>The <b>Copy results as JSON</b> button puts <i>all</i> values into your clipboard
+             in a clean, machine-readable structure.</p>
+        </section>
+
+        <section class="help-section">
+          <h3><span class="pill">Step 3</span> Live cursor &amp; the map</h3>
+          <p>Move the mouse over the map and the values follow you in two places at once.</p>
+
+          <figure class="illus-fig">
+            <svg class="illus" viewBox="0 0 420 260" role="img"
+                 aria-label="The map panel: a themed result marker, zoom buttons on the top left, a base map button on the top right, a scale bar bottom left and the cursor position panel bottom right.">
+              <rect class="il-ground" x="0" y="0" width="420" height="260" rx="16"/>
+
+              <rect class="il-block" x="30" y="42" width="92" height="58" rx="6" opacity=".55"/>
+              <rect class="il-block" x="152" y="92" width="108" height="68" rx="6" opacity=".4"/>
+              <rect class="il-block" x="300" y="42" width="78" height="92" rx="6" opacity=".35"/>
+
+              <path class="il-road" d="M0 170 H420"/>
+              <path class="il-road" d="M120 0 V260"/>
+              <path class="il-road" d="M290 0 V260"/>
+              <path class="il-road" d="M0 70 H420"/>
+
+              <!-- result marker -->
+              <circle class="il-accent" cx="180" cy="150" r="11" opacity=".22"/>
+              <path class="il-accent" d="M180 106c-8.837 0-16 7.163-16 16 0 12 16 28 16 28s16-16 16-28c0-8.837-7.163-16-16-16z"/>
+              <circle class="il-ground" cx="180" cy="122" r="5.5"/>
+
+              <!-- zoom control -->
+              <rect class="il-panel-strong" x="16" y="16" width="40" height="80" rx="13"/>
+              <rect class="il-stroke" x="16.5" y="16.5" width="39" height="79" rx="12.5"/>
+              <line class="il-divider" x1="17" y1="56" x2="55" y2="56"/>
+              <text class="il-ctrl" x="36" y="45" text-anchor="middle">+</text>
+              <text class="il-ctrl" x="36" y="79" text-anchor="middle">−</text>
+
+              <!-- layer button -->
+              <rect class="il-panel-strong" x="364" y="16" width="40" height="40" rx="13"/>
+              <rect class="il-stroke" x="364.5" y="16.5" width="39" height="39" rx="12.5"/>
+              <path class="il-ctrl-stroke" d="M384 26l-8 4 8 4 8-4z"/>
+              <path class="il-ctrl-stroke" d="M376 36.5l8 4 8-4"/>
+
+              <!-- scale bar -->
+              <line class="il-scale" x1="16" y1="242" x2="96" y2="242"/>
+              <line class="il-scale" x1="16" y1="235" x2="16" y2="249"/>
+              <line class="il-scale" x1="56" y1="238" x2="56" y2="246"/>
+              <line class="il-scale" x1="96" y1="235" x2="96" y2="249"/>
+              <text class="il-scale-text" x="56" y="230" text-anchor="middle">100 m</text>
+
+              <!-- cursor HUD -->
+              <rect class="il-panel-strong" x="216" y="148" width="188" height="104" rx="16"/>
+              <rect class="il-stroke" x="216.5" y="148.5" width="187" height="103" rx="15.5"/>
+              <line class="il-divider" x1="217" y1="174" x2="403" y2="174"/>
+              <circle class="il-accent" cx="230" cy="161" r="3.5"/>
+              <text class="il-label" x="240" y="165">CURSOR POSITION</text>
+              <text class="il-hud-label" x="228" y="190">LAT / LON</text>
+              <text class="il-hud-val" x="392" y="190" text-anchor="end">40.6892, -74.0445</text>
+              <text class="il-hud-label" x="228" y="208">ARCGIS XY</text>
+              <text class="il-hud-val" x="392" y="208" text-anchor="end">580,736 4,504,695</text>
+              <text class="il-hud-label" x="228" y="226">MGRS 6</text>
+              <text class="il-hud-val" x="392" y="226" text-anchor="end">18T WL 807 046</text>
+              <text class="il-hud-label" x="228" y="244">MGRS 8</text>
+              <text class="il-hud-val" x="392" y="244" text-anchor="end">18T WL 8073 0469</text>
+            </svg>
+            <figcaption><b>Figure 3</b> — Step 3. The sidebar card and the on-map
+              <b>Cursor position</b> panel show the same live values.</figcaption>
+          </figure>
+
+          <ul class="help-list">
+            <li>The <b>Live cursor</b> card in the sidebar updates with the current position.</li>
+            <li>The <b>Cursor position</b> panel at the bottom-right of the map mirrors the same values.</li>
+            <li><b>Click anywhere</b> on the map to lock that point as the active location — the dashboard, marker and popup all update.</li>
+            <li><b>Drag the marker</b> to fine-tune the position — the dashboard updates on release.</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h3><span class="pill">Map</span> Controls &amp; layers</h3>
+
+          <figure class="illus-fig">
+            <svg class="illus" viewBox="0 0 300 250" role="img"
+                 aria-label="The base map menu listing Standard, Satellite, Terrain, Humanitarian and Dark options.">
+              <rect class="il-panel-strong" x="6" y="6" width="288" height="238" rx="16"/>
+              <rect class="il-stroke" x="6.5" y="6.5" width="287" height="237" rx="15.5"/>
+              <text class="il-label" x="22" y="30">BASE MAP</text>
+
+              <rect class="il-accent-soft" x="14" y="44" width="272" height="32" rx="10"/>
+              <rect class="il-sw il-sw-standard" x="24" y="49" width="22" height="22" rx="7"/>
+              <text class="il-item-active" x="56" y="65">Standard (OSM)</text>
+
+              <rect class="il-sw il-sw-satellite" x="24" y="85" width="22" height="22" rx="7"/>
+              <text class="il-item" x="56" y="101">Satellite</text>
+
+              <rect class="il-sw il-sw-terrain" x="24" y="121" width="22" height="22" rx="7"/>
+              <text class="il-item" x="56" y="137">Terrain</text>
+
+              <rect class="il-sw il-sw-humanitarian" x="24" y="157" width="22" height="22" rx="7"/>
+              <text class="il-item" x="56" y="173">Humanitarian</text>
+
+              <rect class="il-sw il-sw-dark" x="24" y="193" width="22" height="22" rx="7"/>
+              <text class="il-item" x="56" y="209">Dark (CARTO)</text>
+            </svg>
+            <figcaption><b>Figure 4</b> — the base map menu. <em>Dark (CARTO)</em> blends with
+              the glass theme; <em>Satellite</em> and <em>Terrain</em> are best for field work.</figcaption>
+          </figure>
+
+          <ul class="help-list">
+            <li><b>Zoom</b> — the +/− buttons on the top-left, or a scroll wheel / pinch.</li>
+            <li><b>Layer switcher</b> — the stacked-layers button on the top-right opens the menu above with five base maps.</li>
+            <li><b>Scale bar &amp; attribution</b> — bottom-left, showing metric and imperial units.</li>
+          </ul>
+        </section>
+
+        <section class="help-section">
+          <h3><span class="pill">Reference</span> Format cheat sheet</h3>
+
+          <div class="help-table">
+            <div class="help-row help-row-head">
+              <span>System</span><span>Example</span><span>Units / precision</span>
+            </div>
+            <div class="help-row">
+              <span>Lat / Lon (DD)</span><span><code>40.6892, -74.0445</code></span><span>degrees</span>
+            </div>
+            <div class="help-row">
+              <span>Lat / Lon (DMS)</span><span><code>40°41'21"N 74°02'40"W</code></span><span>deg / min / sec</span>
+            </div>
+            <div class="help-row">
+              <span>ArcGIS XY (UTM)</span><span><code>18N 580736 4504695</code></span><span>metres</span>
+            </div>
+            <div class="help-row">
+              <span>MGRS 6-digit</span><span><code>18T WL 807 046</code></span><span>100 m</span>
+            </div>
+            <div class="help-row">
+              <span>MGRS 8-digit</span><span><code>18T WL 8073 0469</code></span><span>10 m</span>
+            </div>
+            <div class="help-row">
+              <span>MGRS 10-digit</span><span><code>18T WL 80735 04695</code></span><span>1 m</span>
+            </div>
+          </div>
+
+          <div class="help-callout">
+            <span class="callout-dot warn"></span>
+            <p>MGRS / USNG is defined only between <b>80°S</b> and <b>84°N</b>.
+               Points outside that band will still show lat/lon and XY, but grid
+               references will be unavailable.</p>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h3><span class="pill">Tips</span> Little things worth knowing</h3>
+          <ul class="help-list">
+            <li>Press <kbd>Esc</kbd> or click outside the window to close it.</li>
+            <li>Grid references without a space between digits — like <code>18TWL8073504695</code> — are also accepted.</li>
+            <li>If you paste XY without a zone, the tool will ask you to fill in the UTM zone field.</li>
+            <li>Hover the map first to preview a location, then click to confirm it.</li>
+            <li>Click any value in the <b>Coordinate dashboard</b> or <b>Live cursor</b> card to copy just that field.</li>
+            <li>The marker drops in with a bounce whenever a new point is selected.</li>
+            <li>Drag the dotted grip on a deployment row to set your order of battle — the legend follows it.</li>
+            <li>Use the copy button on a row to clone a unit, then edit the copy into a second element.</li>
+            <li>Reordering works from the keyboard too: focus a row, then <kbd>Alt</kbd>+<kbd>&uarr;</kbd> / <kbd>&darr;</kbd>.</li>
+            <li>Click <b>Manage types</b> beside the Unit type label to add your own unit types — your names, icons and colours.</li>
+            <li>Custom unit types travel inside an exported JSON file, so importing shares the naming too.</li>
+          </ul>
+        </section>
+
+        <!-- ---------------- STEP 4: DEPLOYMENTS ---------------- -->
+        <section class="help-section">
+          <h3><span class="pill">Step 4</span> Deployments</h3>
+          <p>Plot units on the map using one of six tactical unit types, each with its own
+             icon, colour, and full equipment details. Open the card with the <b>Deploy</b>
+             button in the top bar.</p>
+
+          <figure class="illus-fig">
+            <svg class="illus" viewBox="0 0 420 280" role="img"
+                 aria-label="The Deployments card: unit type menu, icon menu, colour, live preview strip, commander, troops, vehicles, arms and equipment fields.">
+              <rect class="il-panel" x="6" y="6" width="408" height="268" rx="16"/>
+              <rect class="il-stroke" x="6.5" y="6.5" width="407" height="267" rx="15.5"/>
+
+              <rect class="il-accent" x="24" y="22" width="22" height="22" rx="7"/>
+              <text class="il-badge il-on-accent" x="35" y="37" text-anchor="middle">4</text>
+              <text class="il-cap2" x="56" y="37">DEPLOYMENTS</text>
+
+              <rect class="il-field" x="24" y="54" width="184" height="32" rx="8"/>
+              <text class="il-label" x="34" y="68">UNIT TYPE</text>
+              <text class="il-value" x="34" y="80">Support Platoon</text>
+
+              <rect class="il-field" x="24" y="94" width="184" height="32" rx="8"/>
+              <text class="il-label" x="34" y="108">ICON</text>
+              <text class="il-value" x="34" y="120">Armoured Vehicle</text>
+
+              <rect class="il-field" x="220" y="54" width="196" height="72" rx="8"/>
+              <text class="il-label" x="230" y="68">COLOR</text>
+              <circle class="il-accent" cx="240" cy="86" r="9"/>
+              <text class="il-mono" x="256" y="90">#F59E0B</text>
+
+              <rect class="il-accent-soft" x="24" y="134" width="392" height="46" rx="8"/>
+              <text class="il-label" x="34" y="150">PREVIEW</text>
+              <rect class="il-accent" x="34" y="156" width="20" height="20" rx="5" opacity=".85"/>
+              <text class="il-value" x="64" y="164">Support Platoon · Armoured Vehicle icon</text>
+              <text class="il-value" x="64" y="176">BTR-80 x2 + truck x1</text>
+
+              <rect class="il-field" x="24" y="188" width="184" height="32" rx="8"/>
+              <text class="il-label" x="34" y="202">COMMANDER</text>
+              <text class="il-value" x="34" y="214">Capt. Smith</text>
+
+              <rect class="il-field" x="220" y="188" width="90" height="32" rx="8"/>
+              <text class="il-label" x="230" y="202">TROOPS</text>
+              <text class="il-value" x="230" y="214">24</text>
+
+              <rect class="il-field" x="318" y="188" width="98" height="32" rx="8"/>
+              <text class="il-label" x="328" y="202">VEHICLES</text>
+              <text class="il-value" x="328" y="214">3</text>
+
+              <rect class="il-accent" x="24" y="228" width="184" height="34" rx="9"/>
+              <text class="il-cta il-on-accent" x="116" y="249" text-anchor="middle">Place on map</text>
+              <rect class="il-field" x="216" y="228" width="100" height="34" rx="9"/>
+              <text class="il-muted-text" x="266" y="249" text-anchor="middle">Clear form</text>
+            </svg>
+            <figcaption><b>Figure 5</b> — The Deployments card. Choose a unit type, and the icon
+              menu, colour and live preview update to match it automatically.</figcaption>
+          </figure>
+
+          <h4 class="help-subhead">The six unit types</h4>
+          <p>Each unit type is locked to its own icon set, so the map stays readable at a glance.</p>
+
+          <div class="unit-type-grid">
+            <div class="unit-type-card">
+              <span class="unit-type-icon" style="color:#00F5D4">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V3.5"/><path d="M5 4.5h13.5l-2.6 4 2.6 4H5z" fill="currentColor" fill-opacity=".22"/></svg>
+              </span>
+              <div class="unit-type-info">
+                <h4>Company HQ</h4>
+                <p><b>Flag</b> icon · command element and headquarters.</p>
+              </div>
+            </div>
+
+            <div class="unit-type-card">
+              <span class="unit-type-icon" style="color:#F59E0B">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 15.5h20"/><path d="M4 15.5V12h3.5L9 8.5h6l1.5 3.5H20v3.5"/><rect x="9.5" y="4.4" width="5" height="4.1" rx="1"/><path d="M12 4.4V2"/><circle cx="7" cy="18" r="2.2"/><circle cx="17" cy="18" r="2.2"/></svg>
+              </span>
+              <div class="unit-type-info">
+                <h4>Support Platoon</h4>
+                <p><b>Armoured Vehicle</b> icon · fires, logistics, transport.</p>
+              </div>
+            </div>
+
+            <div class="unit-type-card">
+              <span class="unit-type-icon" style="color:#38BDF8">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5.6" r="2.1" fill="currentColor" stroke="none"/><path d="M12 7.7V21"/><path d="M7 21l5-11.5L17 21"/><path d="M4.5 21h15"/><path d="M6.4 8.6a7.6 7.6 0 0 0 0 8"/><path d="M17.6 8.6a7.6 7.6 0 0 1 0 8"/></svg>
+              </span>
+              <div class="unit-type-info">
+                <h4>SIGINT Platoon</h4>
+                <p><b>Antenna / Signal Tower</b> icon · signals &amp; electronic intelligence.</p>
+              </div>
+            </div>
+
+            <div class="unit-type-card">
+              <span class="unit-type-icon" style="color:#A78BFA">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="5" r="2.4"/><circle cx="19" cy="5" r="2.4"/><circle cx="5" cy="19" r="2.4"/><circle cx="19" cy="19" r="2.4"/><rect x="9.2" y="9.2" width="5.6" height="5.6" rx="1.4"/><path d="m7.1 7.1 2.1 2.1M16.9 7.1l-2.1 2.1M7.1 16.9l2.1-2.1M16.9 16.9l-2.1-2.1"/></svg>
+              </span>
+              <div class="unit-type-info">
+                <h4>ISR Platoon</h4>
+                <p><b>Drone</b> icon · aerial surveillance &amp; reconnaissance.</p>
+              </div>
+            </div>
+
+            <div class="unit-type-card">
+              <span class="unit-type-icon" style="color:#F472B6">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5c2.9 0 5.2 2.2 5.2 5.1v1.4H6.8V9.6C6.8 6.7 9.1 4.5 12 4.5Z"/><path d="M3.6 11h16.8"/><circle cx="14.6" cy="17" r="3.8"/><path d="m17.4 19.8 3.1 3.1"/></svg>
+              </span>
+              <div class="unit-type-info">
+                <h4>HUMINT Platoon</h4>
+                <p><b>Detective</b> icon · human intelligence &amp; liaison.</p>
+              </div>
+            </div>
+
+            <div class="unit-type-card unit-type-card-wide">
+              <span class="unit-type-icon" style="color:#EF4444">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2.6 2.9 5.9 6.5.95-4.7 4.6 1.1 6.5L12 17.5l-5.8 3.05 1.1-6.5-4.7-4.6 6.5-.95z"/></svg>
+              </span>
+              <div class="unit-type-info">
+                <h4>Special Task</h4>
+                <p>Three icons available — pick whichever fits the element you are plotting:</p>
+                <div class="unit-type-variants">
+                  <span class="unit-variant" style="color:#EF4444">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2.6 2.9 5.9 6.5.95-4.7 4.6 1.1 6.5L12 17.5l-5.8 3.05 1.1-6.5-4.7-4.6 6.5-.95z"/></svg>
+                    Star
+                  </span>
+                  <span class="unit-variant" style="color:#EF4444">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 2.4 21.6 12 12 21.6 2.4 12z"/></svg>
+                    Diamond
+                  </span>
+                  <span class="unit-variant" style="color:#EF4444">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/></svg>
+                    Circle
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ul class="help-list">
+            <li><b>Unit type</b> — choose from the six types above. Changing the type resets the icon menu, the colour, and the live preview.</li>
+            <li><b>Icon</b> — only the icons valid for the selected unit type are offered. Five types have a single fixed icon; <em>Special Task</em> offers all three shapes.</li>
+            <li><b>Color</b> — each type has a sensible default (HQ teal, Support amber, SIGINT blue, ISR violet, HUMINT pink, Special Task red). Override it with the picker if you need to — e.g. to colour by task, not by unit.</li>
+            <li><b>Preview</b> — the strip under the icon menu shows exactly what will appear on the map, updating live as you change anything.</li>
+            <li><b>Commander</b> — name or callsign of the unit leader.</li>
+            <li><b>Troops</b> — number of personnel.</li>
+            <li><b>Vehicles</b> — free text: a count like <code>3</code>, or a description like <code>BTR-80 x2 + truck x1</code>.</li>
+            <li><b>Arms &amp; Ammo</b> — weapons and ammunition, e.g. <code>AKM x20, RPG-7 x3</code>.</li>
+            <li><b>Special Equipment</b> — night vision, optics, comms gear, etc.</li>
+          </ul>
+
+          <p>Click <b>Place on map</b> to drop the marker at the currently selected map location.
+             Markers are draggable — drag to reposition and the coordinates update automatically.
+             Click a marker on the map, or a row in the list, to fly to it and read its full
+             details in a popup.</p>
+
+          <h4 class="help-subhead">Organising the list</h4>
+          <p>Every placed unit appears as a row under the form. The list order is your
+             <b>order of battle</b> — it drives the on-map legend and survives a page reload
+             and an export, so you can sequence units however you like (by echelon, phase of
+             the plan, or whoever is on the left of the map).</p>
+
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>&#8942;&#8942; Drag to reorder</h4>
+              <p>Grab the dotted grip on the left of any row and drag it up or down.
+                 A coloured line shows whether the unit will land above or below the
+                 row you are hovering. Dragging near the top or bottom edge scrolls
+                 the list automatically.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#10697; Duplicate</h4>
+              <p>Copies the unit — same type, icon, colour, commander, troops, vehicles,
+                 arms and equipment — and inserts the copy directly beneath the original,
+                 so you can then edit it into a second element. The copy is labelled
+                 <em>&ldquo;name (copy)&rdquo;</em> until you rename it.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#9003; Remove</h4>
+              <p>Deletes the row and its map marker. There is no undo, so duplicate
+                 anything you might want back.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#9003;&#xfe0e; Keyboard</h4>
+              <p>Focus a row with <kbd>Tab</kbd>, then use
+                 <kbd>Alt</kbd>+<kbd>&uarr;</kbd> / <kbd>Alt</kbd>+<kbd>&darr;</kbd> to reorder,
+                 and <kbd>Enter</kbd> to fly to the unit on the map.</p>
+            </div>
+          </div>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p>Drag-and-drop needs a mouse, so on a touch screen use the
+               <kbd>Alt</kbd>+arrow keys or the keyboard shortcut instead. Reordering and
+               duplication are saved immediately — there is no separate save step.</p>
+          </div>
+
+          <h4 class="help-subhead">Creating your own unit types</h4>
+          <p>The six types above are built in, but the list is not fixed. Click
+             <b>Manage types</b> next to the Unit type label to add your own — useful when your
+             organisation names things differently, or when you need an element the built-in
+             set does not cover.</p>
+
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>&#10133; Name</h4>
+              <p>Up to 40 characters. Yours appear in a separate <b>Your types</b> group in the
+                 Unit type menu, below the built-in six.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Icons</h4>
+              <p>Tick <b>one to three</b> from the same eight shapes the built-in types use.
+                 Several icons means the type can be drawn whichever way suits the element.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#9683; Colour</h4>
+              <p>Pick any colour. It becomes the type's default marker colour and the colour of
+                 its chip in the manager — though you can still override it per deployment.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#9998; Edit &amp; delete</h4>
+              <p>Edit any time. Deleting a type that is still in use asks first, then moves those
+                 deployments to <em>Company HQ</em> — their commander, troops, vehicles, arms and
+                 equipment are all kept.</p>
+            </div>
+          </div>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p>Custom types are stored in this browser and are written into the exported JSON file,
+               so importing a teammate's file brings their unit types with it — nobody has to
+               recreate them by hand.</p>
+          </div>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p>All deployments are saved automatically to this browser. Use the <b>Save &amp; Share</b>
+               card to export them as a JSON file, or to import a teammate's markings and compare.</p>
+          </div>
+        </section>
+
+        <!-- ---------------- STEP 5: ZONES ---------------- -->
+        <section class="help-section">
+          <h3><span class="pill">Step 5</span> Zones</h3>
+          <p>Draw coloured polygon zones on the map — tactical sectors, perimeters, AO boundaries — with a name and calculated area.</p>
+
+          <figure class="illus-fig">
+            <svg class="illus" viewBox="0 0 420 280" role="img"
+                 aria-label="The Zones card with colour picker, zone name, opacity slider, and drawing controls.">
+              <rect class="il-panel" x="6" y="6" width="408" height="268" rx="16"/>
+              <rect class="il-stroke" x="6.5" y="6.5" width="407" height="267" rx="15.5"/>
+
+              <rect class="il-accent" x="24" y="22" width="22" height="22" rx="7"/>
+              <text class="il-badge il-on-accent" x="35" y="37" text-anchor="middle">5</text>
+              <text class="il-cap2" x="56" y="37">ZONES</text>
+
+              <rect class="il-field" x="24" y="54" width="184" height="32" rx="8"/>
+              <text class="il-muted-text" x="34" y="74">Zone color</text>
+              <circle class="il-accent" cx="52" cy="70" r="8"/>
+              <text class="il-value" x="64" y="74">#FF6B6B</text>
+
+              <rect class="il-field" x="24" y="94" width="184" height="32" rx="8"/>
+              <text class="il-muted-text" x="34" y="114">Zone name</text>
+              <text class="il-value" x="36" y="110">Alpha Sector</text>
+
+              <rect class="il-field" x="24" y="134" width="184" height="50" rx="8"/>
+              <text class="il-label" x="34" y="150">Fill opacity</text>
+              <line class="il-scale" x1="34" y1="170" x2="180" y2="170"/>
+              <circle class="il-accent" cx="120" cy="170" r="5"/>
+              <text class="il-muted-text" x="150" y="174">0.35</text>
+
+              <rect class="il-accent" x="224" y="54" width="184" height="36" rx="10"/>
+              <text class="il-cta il-on-accent" x="316" y="76" text-anchor="middle">&#9671; Start drawing</text>
+
+              <!-- map preview of polygon -->
+              <rect class="il-accent-soft" x="224" y="98" width="184" height="164" rx="10"/>
+              <text class="il-label" x="234" y="116">MAP PREVIEW</text>
+              <polygon class="il-accent" points="240,140 300,130 350,170 320,220 240,200 230,170" opacity=".35" stroke="#FF6B6B" stroke-width="2" fill="#FF6B6B"/>
+              <text class="il-value" x="316" y="260" text-anchor="middle">Alpha Sector</text>
+              <text class="il-muted-text" x="316" y="276" text-anchor="middle">42,500 m&#xb2;</text>
+            </svg>
+            <figcaption><b>Figure 6</b> — The Zones card. Choose a colour and name, then click Start drawing and click points on the map to build the polygon.</figcaption>
+          </figure>
+
+          <ul class="help-list">
+            <li><b>Zone color</b> — pick any colour; the fill and outline use this colour.</li>
+            <li><b>Zone name</b> — a label like <em>Alpha Sector</em> or <em>Perimiter A</em>. If left blank, a default name is generated.</li>
+            <li><b>Fill opacity</b> — how transparent the zone fill is (0.1 to 0.8).</li>
+            <li><b>Start drawing</b> — click this button, then click on the map to add vertices. A dashed preview line follows your cursor.</li>
+            <li><b>Finish zone</b> — click this button (or the Stop drawing button) to complete the polygon. You need at least 3 vertices.</li>
+            <li><b>Stop drawing</b> — cancel the current drawing without saving.</li>
+            <li><b>Clear all zones</b> — remove every zone from the map.</li>
+          </ul>
+
+          <p>While drawing, double-click zoom is <b>disabled</b> so you can place vertices precisely. The zone's area (in m² or km²) is calculated automatically and shown in the popup and the zone list. Click a zone in the list to fly to its centre.</p>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p>Zones are saved alongside deployments in localStorage, and travel with your copied and exported JSON data.</p>
+          </div>
+        </section>
+
+        <!-- ---------------- STEP 6: SAVE & SHARE ---------------- -->
+        <section class="help-section">
+          <h3><span class="pill">Step 6</span> Save &amp; Share</h3>
+          <p>Persist your markings locally and exchange them with others via JSON files.</p>
+
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>&#128190; Save to browser</h4>
+              <p>Stores the map indicator, all deployments, zones and your custom unit types in this browser's localStorage. They reappear automatically when you return.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#128194; Load from browser</h4>
+              <p>Reloads the last saved session from localStorage, including the map indicator position.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#128203; Copy all data</h4>
+              <p>Puts the complete session JSON on your clipboard — the same payload the exported file contains. Paste it anywhere.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#128230; Export JSON file</h4>
+              <p>Downloads a <code>gis-helper-data-YYYY-MM-DD.json</code> file with everything — map indicator, deployments, zones, colours, details, areas.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#128229; Import JSON file</h4>
+              <p>Load a saved file from disk. You can also <b>drag and drop</b> a <code>.json</code> file anywhere onto the page.</p>
+            </div>
+          </div>
+
+          <p>Exported files can be emailed, shared on a drive, or posted online — anyone with the file can import it and see the same map. There is no server and no account: the file <em>is</em> the data, so a file you export on one machine opens identically on another. Files from older versions are also accepted (missing fields are filled in safely).</p>
+
+          <div class="help-callout">
+            <span class="callout-dot warn"></span>
+            <p>If the map already has data, importing asks whether to <b>merge</b> (add alongside what is there, keeping your current map indicator) or <b>replace</b> (clear everything and load the file exactly, including its map indicator). Cancelling leaves the map untouched. Your custom unit types are always merged in, never deleted.</p>
+          </div>
+        </section>
+
+        <!-- ---------------- STEP 7: PRINT & EXPORT ---------------- -->
+        <section class="help-section">
+          <h3><span class="pill">Step 7</span> Print &amp; image export</h3>
+          <p>Turn the current plan into something you can hand over on paper or drop into a message.</p>
+
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>&#128424; Print report</h4>
+              <p>Opens your browser&rsquo;s print dialog with a one-page plan sheet: the map, then tables of every deployment and zone. Choose <b>Save as PDF</b> as the destination to get a PDF instead.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#128444; Export PNG</h4>
+              <p>Downloads the same picture as a <code>gis-helper-plan-YYYY-MM-DD.png</code> — 1600&times;1000, ready to paste into a briefing or a report.</p>
+            </div>
+          </div>
+
+          <p>The picture frames every deployment, every zone and the map indicator, then numbers each deployment pin so it matches the row in the report table. It also carries a scale bar, a north arrow, and the base map&rsquo;s attribution — which the OpenStreetMap, CARTO and OpenTopoMap licences require to stay visible.</p>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p>No new dependencies and no server are involved: the image is drawn on a plain <code>&lt;canvas&gt;</code> in your browser. If the tile server refuses to serve tiles to a canvas (a browser security restriction that varies by provider), the export quietly falls back to a <b>schematic plan</b> — a coordinate grid with the same zones, pins and labels, just without the street imagery. You will be told which one you got.</p>
+          </div>
+
+          <h4 style="margin-top:18px;">Export options</h4>
+          <p>These sit above the two export buttons and are remembered in this browser.</p>
+          <ul class="help-list">
+            <li><b>Frame</b> — what the picture frames: everything, whatever the map is currently showing, deployments only, zones only, or just the map indicator. If you pick a preset that has nothing in it, you are told what is missing rather than given a blank sheet.</li>
+            <li><b>Scale bar</b> — metric, imperial, both, or hidden. Imperial uses feet and miles.</li>
+            <li><b>Rotate to fit</b> — off means north-up, which is also the default. Turn it on and the plan is spun onto its longest axis, so a long or diagonal plan fills the frame instead of leaving empty corners. The north arrow turns with it and the caption states the applied angle. A plan that already runs along an axis is left alone.</li>
+            <li><b>Plan title</b> and <b>Plan date</b> — optional. They print in the report header, so you can label a sheet with an exercise name or an operation date. They are not burned into the PNG.</li>
+          </ul>
+        </section>
+
+      </div>
+
+      <!-- ---------------- CREATOR ---------------- -->
+      <div class="tab-panel" id="panel-creator" role="tabpanel" aria-labelledby="tab-creator">
+
+        <div class="about-hero">
+          <div class="about-avatar">
+            <img src="Assets/creator-avatar.jpg"
+                 alt="Portrait of Md Masrur Masuk Shopnil, creator of GIS Helper"
+                 width="82" height="82" loading="lazy" decoding="async" />
+          </div>
+
+          <div class="about-hero-text">
+            <h3>Md Masrur Masuk Shopnil</h3>
+            <p>Engineer by training · designer by stubbornness</p>
+          </div>
+        </div>
+
+        <div class="about-prose">
+          <p>
+            Hi — I'm the person behind <b>GIS Helper</b>. I did not go to design school;
+            I studied at <b>MIST</b> (Military Institute of Science and Technology, Bangladesh),
+            which taught me a lot about engineering and approximately nothing about colour theory.
+            Everything you see here is self-taught, mildly obsessive, hobbyist-grade web design.
+            The four themes were mostly me asking <em>"does this mint go with this teal?"</em>
+            and then reloading the page forty times.
+          </p>
+
+          <p>
+            What I do know is the special kind of tedium that comes from needing one coordinate
+            in three different formats at once. Someone hands you a lat/lon, the field form wants
+            MGRS, the GIS software wants UTM Easting and Northing, and the only converter you can
+            find online goes one direction, drops the hemisphere, and asks you to pick a UTM zone
+            from a dropdown you're not sure about. Then you're counting grid digits by hand at
+            2 a.m. hoping you didn't shave off a zero. One day I got fed up enough to build a tool instead of complaining about it.
+          </p>
+
+          <p>
+            <b>GIS Helper</b> takes whatever you've got — a place name, a lat/lon pair, a 6- or
+            8-digit grid reference, a raw XY — and converts it into every other format at once,
+            on a map, live. Like a very patient GIS analyst who never mixes up their eastings
+            and northings.
+          </p>
+
+          <p>
+            Then it grew a second job. Somewhere between planning a rehearsal and actually
+            drawing it on a sheet of acetate, I realised I was doing the same thing twice:
+            pinning down <i>where</i> everything is, and then separately <i>what</i> is there.
+            So I gave it a <b>tactical marking layer</b> — six unit types with their own icons
+            (Company HQ, Support, SIGINT, ISR, HUMINT and Special Task), polygon zones that
+            calculate their own area, and a save/export button so the plan leaves my laptop
+            in a form other people can actually open.
+          </p>
+
+          <p>
+            No accounts, no server, no database. Everything is stored in your browser, and a
+            single JSON file carries the whole order of battle to whoever needs it. It is the
+            smallest tool that does the job, which is roughly the only kind of tool I trust
+            with information nobody should have to upload to a stranger's database.
+          </p>
+
+          <p>
+            It started as a weekend fix for my own field notes and quietly turned into… this.
+            I hope it saves you as much time (and head-scratching) as it's saved me.
+          </p>
+
+          <div class="about-chips">
+            <span class="about-chip">Coordinates</span>
+            <span class="about-chip">MGRS / USNG</span>
+            <span class="about-chip">UTM / ArcGIS XY</span>
+            <span class="about-chip">Deployments</span>
+            <span class="about-chip">Zones &amp; area</span>
+            <span class="about-chip">JSON import / export</span>
+            <span class="about-chip">No account needed</span>
+          </div>
+
+          <div class="about-signature">
+            — Built with too many late nights and not enough colour theory.
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <footer class="modal-footer">
+      <span class="modal-footer-note">Reopen this anytime from the <b>About</b> button in the top bar.</span>
+      <button class="btn btn-primary modal-cta" id="about-close-btn">Close</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ===================== UNIT TYPE MANAGER MODAL ===================== -->
+<div class="modal-overlay" id="types-modal" role="dialog" aria-modal="true" aria-labelledby="types-title">
+  <div class="modal types-modal" role="document">
+    <header class="modal-header">
+      <div class="modal-title">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div>
+          <h2 id="types-title">Unit types</h2>
+          <p>The six built-in types, plus any you create yourself.</p>
+        </div>
+      </div>
+      <button class="modal-close" id="types-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      <section class="help-section">
+        <h3><span class="pill">Built-in</span> Always available</h3>
+        <p class="types-note">These six ship with GIS Helper and cannot be renamed or removed.</p>
+        <div class="types-builtin-grid" id="types-builtin-grid"></div>
+      </section>
+
+      <section class="help-section">
+        <h3><span class="pill">Yours</span> Custom unit types</h3>
+        <div class="types-custom-list" id="types-custom-list"></div>
+      </section>
+
+      <section class="help-section">
+        <h3><span class="pill" id="types-form-pill">New</span> <span id="types-form-title">Create a unit type</span></h3>
+
+        <div class="types-field">
+          <label class="lbl" for="type-label">Name</label>
+          <input id="type-label" class="input" type="text" maxlength="40" placeholder="e.g. Recon Team Alpha" />
+        </div>
+
+        <div class="types-field">
+          <label class="lbl">Icons <em>(pick one or more, max 3)</em></label>
+          <div class="type-icon-picker" id="type-icon-picker"></div>
+        </div>
+
+        <div class="types-field">
+          <label class="lbl" for="type-color">Colour</label>
+          <div class="color-picker-wrap">
+            <input id="type-color" type="color" class="input color-picker" value="#38BDF8" />
+            <input id="type-color-hex" type="text" class="input color-hex" value="#38BDF8" maxlength="7" />
+          </div>
+        </div>
+
+        <div class="types-preview-row">
+          <span class="types-preview-label">Preview</span>
+          <div class="types-preview" id="type-preview"></div>
+          <span class="types-preview-hint" id="type-preview-hint"></span>
+        </div>
+
+        <div class="types-form-actions">
+          <button id="type-save-btn" class="btn btn-primary">Create type</button>
+          <button id="type-cancel-btn" class="btn btn-ghost">Clear</button>
+        </div>
+      </section>
+    </div>
+
+    <footer class="modal-footer">
+      <span class="modal-footer-note">Custom types are saved in this browser and travel with your exported JSON file.</span>
+      <button class="btn btn-primary modal-cta" id="types-close-btn">Done</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ===================== PRINTABLE REPORT ===================== -->
+<!-- Hidden on screen; the print stylesheet reveals this and hides everything else. -->
+<section id="report" class="report" aria-hidden="true">
+  <div class="report-sheet">
+    <header class="report-head">
+      <div class="report-brand">
+        <span class="report-logo" aria-hidden="true">
+          <svg viewBox="0 0 24 32" fill="none">
+            <path d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 20 12 20s12-11.5 12-20C24 5.373 18.627 0 12 0z" fill="#0FBFAE"/>
+            <circle cx="12" cy="12" r="4.6" fill="#062A2A"/>
+          </svg>
+        </span>
+        <div>
+          <h1 id="report-title">GIS Helper \u2014 Tactical Plan</h1>
+          <p id="report-sub">Generated</p>
+          <p id="report-scope"></p>
+        </div>
+      </div>
+      <dl class="report-facts">
+        <div><dt>Map indicator</dt><dd id="report-place">\u2014</dd></div>
+        <div><dt>Lat / Lon (DD)</dt><dd id="report-latlon">\u2014</dd></div>
+        <div><dt>MGRS 8-digit</dt><dd id="report-mgrs">\u2014</dd></div>
+        <div><dt>ArcGIS XY (UTM)</dt><dd id="report-utm">\u2014</dd></div>
+      </dl>
+    </header>
+
+    <figure class="report-figure">
+      <img id="report-image" alt="Map showing the map indicator, marked deployments and drawn zones" />
+      <figcaption id="report-caption"></figcaption>
+    </figure>
+
+    <section class="report-block">
+      <h2>Deployments <span id="report-dep-count">(0)</span></h2>
+      <table class="report-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Unit type</th><th>Commander</th><th>Troops</th>
+            <th>Vehicles</th><th>Arms &amp; ammo</th><th>Equipment</th>
+            <th>Lat / Lon</th><th>MGRS 8</th>
+          </tr>
+        </thead>
+        <tbody id="report-deployments-body"></tbody>
+      </table>
+    </section>
+
+    <section class="report-block">
+      <h2>Zones <span id="report-zone-count">(0)</span></h2>
+      <table class="report-table">
+        <thead>
+          <tr><th>#</th><th>Name</th><th>Area</th><th>Vertices</th><th>Centre (approx.)</th><th>MGRS 8</th></tr>
+        </thead>
+        <tbody id="report-zones-body"></tbody>
+      </table>
+    </section>
+
+    <section class="report-block" id="report-types-block">
+      <h2>Unit types in this plan</h2>
+      <div class="report-types" id="report-types"></div>
+    </section>
+
+    <footer class="report-foot">
+      <span>Produced with GIS Helper \u2014 no account, no server. The data never left the author&rsquo;s browser.</span>
+    </footer>
+  </div>
+</section>
+
+<div class="modal-overlay" id="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
+  <div class="modal import-modal" role="document">
+    <header class="modal-header">
+      <div class="modal-title">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </div>
+        <div>
+          <h2 id="import-title">Import saved data</h2>
+          <p>This map already has data on it. How should the file be applied?</p>
+        </div>
+      </div>
+      <button class="modal-close" id="import-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      <div class="import-file" id="import-file-name"></div>
+      <div class="import-summary" id="import-summary"></div>
+
+      <div class="import-options">
+        <button class="import-option" id="import-merge-btn">
+          <span class="import-option-title">Merge into current data</span>
+          <span class="import-option-desc">Adds the file&rsquo;s deployments and zones alongside what is already on the map. Your current map indicator and existing markings stay put.</span>
+        </button>
+        <button class="import-option is-danger" id="import-replace-btn">
+          <span class="import-option-title">Replace everything</span>
+          <span class="import-option-desc">Clears the current deployments and zones, then loads exactly what the file contains, including its map indicator. This cannot be undone.</span>
+        </button>
+      </div>
+    </div>
+
+    <footer class="modal-footer">
+      <span class="modal-footer-note">Custom unit types are always merged in, never deleted.</span>
+      <button class="btn btn-ghost modal-cta" id="import-cancel-btn">Cancel</button>
+    </footer>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

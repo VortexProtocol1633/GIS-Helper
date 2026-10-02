@@ -1,0 +1,20 @@
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# GIS Helper data exports and saved plans
+# These contain real coordinates, deployments and zones - do not commit them.
+gis-helper-data-*.json
+gis-helper-markings-*.json
+
+# Logs
+*.log
+npm-debug.log*
