@@ -505,6 +505,8 @@
     document.querySelectorAll('.layer-item').forEach(el => {
       el.classList.toggle('active', el.dataset.layer === name);
     });
+    /* An open preview set to "same as the map on screen" has just changed. */
+    schedulePreview();
   }
 
   const layerToggle = document.getElementById('layer-toggle');
@@ -2120,6 +2122,11 @@
   }
 
   function updateDataStatus() {
+    /* Every change to the plan lands here, so this is the one place the open
+       preview needs telling that its picture is stale. */
+    previewPlanRev++;
+    schedulePreview();
+
     const statusEl = $('data-status');
     const textEl   = $('data-status-text');
     const count    = markings.deployments.length + markings.zones.length;
@@ -2772,12 +2779,25 @@
   }
 
   /* ---- one setting, many controls ----
-     The same option appears in the sidebar Export options and again in the
-     Download dialog. Every control carrying [data-pref] reads and writes the
-     one exportPrefs value, so the two places cannot drift apart. */
+     The same option appears in the sidebar Export options, again in the
+     Download dialog and again on the sheet preview. Every control carrying
+     [data-pref] reads and writes the one exportPrefs value, so the three places
+     cannot drift apart. A dotted key reaches into the nested include ticks. */
+  function prefGet(key) {
+    if (key.indexOf('.') === -1) return exportPrefs[key];
+    return key.split('.').reduce((o, k) => (o == null ? undefined : o[k]), exportPrefs);
+  }
+
+  function prefSet(key, value) {
+    if (key.indexOf('.') === -1) { exportPrefs[key] = value; return; }
+    const parts = key.split('.');
+    const last = parts.pop();
+    parts.reduce((o, k) => o[k], exportPrefs)[last] = value;
+  }
+
   function syncPrefControls() {
     document.querySelectorAll('[data-pref]').forEach(el => {
-      const v = exportPrefs[el.dataset.pref];
+      const v = prefGet(el.dataset.pref);
       if (v === undefined) return;
       if (el.type === 'checkbox') el.checked = !!v;
       else if (el.value !== String(v)) el.value = v;
@@ -2785,10 +2805,12 @@
   }
 
   function setPref(key, value) {
-    if (exportPrefs[key] === value) return;
-    exportPrefs[key] = value;
+    if (prefGet(key) === value) return;
+    prefSet(key, value);
     saveExportPrefs();
     syncPrefControls();
+    /* A preview on screen is showing this very setting, so redraw it. */
+    schedulePreview();
   }
 
   function initPrefControls() {
@@ -3070,36 +3092,56 @@
     });
   }
 
-  async function drawBaseTiles(ctx, proj, pts) {
+  async function drawBaseTiles(ctx, proj) {
     const layer = baseLayers[exportLayerName()];
     const tpl = layer && layer._url;
     if (!tpl) return false;
 
     const z = proj.zoom;
     const rot = proj.rot;
+    const span = 256 * Math.pow(2, z);
 
-    /* Unrotated tile footprint. When rotated, the sheet must also be large
-       enough that its rotated outline still covers the whole canvas. */
+    /* The window that has to be painted is the canvas itself, mapped back into
+       world pixels through the very projector the overlays are drawn with.
+       Sizing it from the plan instead - as this used to - meant that whenever a
+       fixed map scale made the plan smaller than the picture, only the plan's
+       own footprint was ever requested: the rest of the sheet was never even
+       asked for, and came out blank. Deriving both the size and the origin
+       from the canvas also keeps the tiles and the vector overlays on the same
+       pixels by construction. */
     let ux0 = Infinity, uy0 = Infinity, ux1 = -Infinity, uy1 = -Infinity;
-    pts.forEach(p => {
-      const q = worldPx(p.lat, p.lon, z);
-      ux0 = Math.min(ux0, q.x); ux1 = Math.max(ux1, q.x);
-      uy0 = Math.min(uy0, q.y); uy1 = Math.max(uy1, q.y);
+    [[0, 0], [EXPORT_W, 0], [0, EXPORT_H], [EXPORT_W, EXPORT_H]].forEach(corner => {
+      const ll = proj.unproject(corner[0], corner[1]);
+      /* Longitude past the antimeridian would ask for tiles that do not exist,
+         so wrap it; a window wider than the world then falls through to the
+         schematic base rather than to a sheet full of holes. */
+      const q = worldPx(ll.lat, ((ll.lon + 540) % 360) - 180, z);
+      if (q.x < ux0) ux0 = q.x;
+      if (q.x > ux1) ux1 = q.x;
+      if (q.y < uy0) uy0 = q.y;
+      if (q.y > uy1) uy1 = q.y;
     });
-    const PAD = 128;
-    ux0 -= PAD; uy0 -= PAD; ux1 += PAD; uy1 += PAD;
 
-    let ow = Math.ceil(ux1 - ux0), oh = Math.ceil(uy1 - uy0);
+    ux0 = Math.floor(ux0); ux1 = Math.ceil(ux1);
+    uy0 = Math.floor(uy0); uy1 = Math.ceil(uy1);
+
+    let ow = ux1 - ux0, oh = uy1 - uy0;
+    if (ow > span || oh > span) return false;   // wider than the world itself
+
+    let ox, oy;
     if (rot) {
+      /* The offscreen sheet is blitted by its centre onto the anchor, so it
+         stays centred on the plan - but it must be large enough that the
+         rotated canvas lands entirely on it. */
       const ca = Math.abs(Math.cos(rot)), sa = Math.abs(Math.sin(rot));
-      const availW = EXPORT_W - 2 * EXPORT_MARGIN, availH = EXPORT_H - 2 * EXPORT_MARGIN;
-      ow = Math.max(ow, Math.ceil(availW * ca + availH * sa));
-      oh = Math.max(oh, Math.ceil(availH * ca + availW * sa));
+      ow = Math.max(ow, Math.ceil(EXPORT_W * ca + EXPORT_H * sa));
+      oh = Math.max(oh, Math.ceil(EXPORT_W * sa + EXPORT_H * ca));
+      ox = Math.round(proj.c.x - ow / 2);
+      oy = Math.round(proj.c.y - oh / 2);
+    } else {
+      ox = ux0;
+      oy = uy0;
     }
-
-    /* Offscreen origin is the point the projector centres on, minus half the
-       sheet, which is what makes the blit below line up exactly. */
-    const ox = Math.round(proj.c.x - ow / 2), oy = Math.round(proj.c.y - oh / 2);
 
     const x0 = Math.floor(ox / 256), x1 = Math.floor((ox + ow - 1) / 256);
     const y0 = Math.floor(oy / 256), y1 = Math.floor((oy + oh - 1) / 256);
@@ -3120,6 +3162,15 @@
     const got = tiles.filter(t => t.img).length;
     if (got < tiles.length * 0.6) return false;   // blocked or mostly dead
 
+    /* Paint the page before any tile lands. A fresh canvas is fully
+       transparent, so without this every strip the tiles do not reach - the
+       margin around the plan, the corners outside a rotated map, a tile whose
+       load failed - stays see-through. Transparent reads as black against the
+       dark preview, and the PDF embeds this picture as JPEG, which has no
+       alpha channel, so those same holes print as solid black. */
+    ctx.fillStyle = '#DCE4EB';
+    ctx.fillRect(0, 0, EXPORT_W, EXPORT_H);
+
     let target = ctx;
     let sheet = null;
     if (rot) {
@@ -3127,8 +3178,8 @@
       sheet.width = ow;
       sheet.height = oh;
       target = sheet.getContext('2d');
-      /* Neutral sheet so the corners outside the rotated map read as page,
-         not as a rendering failure. */
+      /* The rotated map is blitted from this sheet, so it needs its own base
+         for the same reason: the strips outside the plan land on the page. */
       target.fillStyle = '#DCE4EB';
       target.fillRect(0, 0, ow, oh);
     }
@@ -3203,9 +3254,21 @@
     }
   }
 
+  /* Label chips already placed on this sheet. A crowded plan puts several
+     markers within a pin's width of each other, and their labels then print on
+     top of one another into an unreadable smudge, so each new chip steps down
+     until it has clear air. Reset once per export. */
+  let placedTags = [];
+
   function drawTag(ctx, x, y, text, color) {
     ctx.font = '600 15px ' + FONT;
     const w = ctx.measureText(text).width + 16;
+
+    const clashes = ty => placedTags.some(t =>
+      Math.abs(t.y - ty) < 26 && Math.abs(t.x - x) < (t.w + w) / 2);
+    for (let step = 0; step < 10 && clashes(y); step++) y += 26;
+    placedTags.push({ x, y, w });
+
     ctx.fillStyle = 'rgba(7,13,20,0.82)';
     roundRectPath(ctx, x - w / 2, y - 12, w, 24, 6);
     ctx.fill();
@@ -3389,6 +3452,21 @@
     ctx.fillText(text, EXPORT_W - 12, EXPORT_H - 8);
   }
 
+  /* Wait until the sheet's picture is in the layout, but never for longer than
+     a moment. img.decode() is the tidier signal, but it does not settle on
+     every browser for an image in a hidden subtree - and a render that waits on
+     it forever leaves the tables unfilled and the indicator spinning. The
+     image being cached and complete is as good a signal as any at that point. */
+  function whenImageReady(img) {
+    if (img.complete && img.naturalWidth) return Promise.resolve();
+    return new Promise(resolve => {
+      const done = () => resolve();
+      img.addEventListener('load', done, { once: true });
+      img.addEventListener('error', done, { once: true });
+      setTimeout(done, 3000);
+    });
+  }
+
   async function buildExportCanvas() {
     const pts = prepareFramePoints();
     if (!pts) return null;
@@ -3411,9 +3489,10 @@
     canvas.height = EXPORT_H;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas is unavailable in this browser.');
+    placedTags = [];
 
     let usedTiles = false;
-    try { usedTiles = await drawBaseTiles(ctx, proj, pts); } catch (e) { usedTiles = false; }
+    try { usedTiles = await drawBaseTiles(ctx, proj); } catch (e) { usedTiles = false; }
     if (!usedTiles) drawSchematicBase(ctx, proj);
 
     drawZones(ctx, proj);
@@ -3554,13 +3633,142 @@
       img.src = res.canvas.toDataURL('image/png');
       buildReportTables();
       $('report-caption').textContent = exportCaption(res);
-      try { await img.decode(); } catch (e) {}
+      await whenImageReady(img);
       setStatus(res.usedTiles ? 'Report ready \u2014 opening the print dialog.' : 'Report ready (schematic) \u2014 opening the print dialog.', 'ok');
       setTimeout(() => window.print(), 150);
     } catch (e) {
       setStatus('Could not build the report: ' + e.message, 'err');
     }
   }
+
+  /* ============================================================
+     25a. SHEET PREVIEW
+     ============================================================
+     The printable sheet, on screen. It is the same #report markup and the same
+     stylesheet the print dialog uses, so this is a proof of the page rather than
+     a lookalike, and every print option redraws it as it is changed. */
+  const reportEl     = $('report');
+  const previewStage = $('preview-stage');
+  const previewFrame = $('preview-frame');
+
+  let previewOpen   = false;
+  let previewTimer  = null;
+  let previewToken  = 0;      // only the newest build may touch the sheet
+  let previewRes    = null;   // last drawn map picture
+  let previewResKey = '';     // ...and the settings it was drawn for
+  let previewPlanRev = 0;     // bumped whenever the plan itself changes
+
+  /* Settings that change the picture. Anything else - title, date, which
+     tables are on the sheet - redraws from the picture already drawn, which
+     keeps typing in the title field instant. */
+  function previewMapKey() {
+    return [
+      exportPrefs.frame, exportPrefs.mapType, exportPrefs.orientation,
+      exportPrefs.scale, exportPrefs.scaleUnits, exportLayerName(),
+      exportPrefs.include.map, exportPrefs.include.scale, exportPrefs.include.north,
+      previewPlanRev
+    ].join('|');
+  }
+
+  function schedulePreview() {
+    if (!previewOpen) return;
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(renderPreview, 180);
+  }
+
+  async function renderPreview() {
+    if (!previewOpen) return;
+    const token = ++previewToken;
+    const busy  = $('preview-busy');
+    const img   = $('report-image');
+    busy.classList.add('is-on');
+
+    try {
+      const key = previewMapKey();
+      if (!exportPrefs.include.map) {
+        /* The sheet drops the picture altogether, so there is nothing to draw
+           and no reason to go looking for tiles. */
+        previewRes = null;
+        previewResKey = key;
+      } else if (key !== previewResKey) {
+        const res = await buildExportCanvas();
+        /* A newer change landed while the tiles were loading - it owns the
+           sheet now, and its own build is already under way. */
+        if (token !== previewToken) return;
+        if (!res) { busy.classList.remove('is-on'); return; }
+        previewRes = res;
+        previewResKey = key;
+        img.src = res.canvas.toDataURL('image/png');
+        await whenImageReady(img);
+        if (token !== previewToken) return;
+      }
+
+      buildReportTables();
+      /* The caption belongs to the picture, so it only exists with one. */
+      if (previewRes) $('report-caption').textContent = exportCaption(previewRes);
+      fitPreview();
+      if (token === previewToken) busy.classList.remove('is-on');
+    } catch (e) {
+      if (token !== previewToken) return;
+      busy.classList.remove('is-on');
+      setStatus('Could not draw the preview: ' + e.message, 'err');
+    }
+  }
+
+  /* Scale the whole page down to the space the stage has, rather than letting
+     a narrow window squeeze the layout - the sheet is only ever shown at its
+     true A4 size or smaller. The frame is given the scaled size so the scroll
+     area fits the page exactly. */
+  function fitPreview() {
+    const page = previewFrame.firstElementChild;
+    if (!page) return;
+    const w = page.offsetWidth;
+    const h = page.offsetHeight;
+    if (!w) return;
+    const scale = Math.min(1, (previewStage.clientWidth - 44) / w);
+    previewFrame.style.transform = 'scale(' + scale + ')';
+    previewFrame.style.width  = Math.round(w * scale) + 'px';
+    previewFrame.style.height = Math.round(h * scale) + 'px';
+  }
+
+  /* The preview takes the whole screen, so the app behind it goes inert rather
+     than merely being covered - a keyboard user should not be able to tab into
+     controls nobody can see. */
+  function setAppInert(on) {
+    Array.prototype.forEach.call(document.body.children, el => {
+      if (el.id === 'report') return;
+      if (on) el.setAttribute('inert', '');
+      else el.removeAttribute('inert');
+    });
+  }
+
+  function openPreview() {
+    if (previewOpen) return;
+    previewOpen = true;
+    reportEl.classList.add('preview-open');
+    reportEl.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    setAppInert(true);
+    syncPrefControls();
+    fitPreview();
+    renderPreview();
+    setTimeout(() => $('preview-close-btn').focus(), 60);
+  }
+
+  function closePreview() {
+    if (!previewOpen) return;
+    previewOpen = false;
+    clearTimeout(previewTimer);
+    reportEl.classList.remove('preview-open');
+    reportEl.setAttribute('aria-hidden', 'true');
+    setAppInert(false);
+    if (!document.querySelector('.modal-overlay.open')) document.body.style.overflow = '';
+  }
+
+  window.addEventListener('resize', () => { if (previewOpen) fitPreview(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && previewOpen) closePreview();
+  });
 
   /* ============================================================
      25b. DOWNLOAD DIALOG
@@ -3598,6 +3806,7 @@
   function readIncludeFromInputs() {
     INCLUDE_FIELDS.forEach(([key, id]) => { exportPrefs.include[key] = $(id).checked; });
     saveExportPrefs();
+    schedulePreview();
   }
 
   function setSaveOpFormat(fmt) {
@@ -3747,7 +3956,19 @@
   const C_HEADBG = [0.11, 0.16, 0.20];
   const C_BAND   = [0.96, 0.97, 0.98];
 
-  const PDF_ENC = new TextEncoder();
+  /* PDF text strings are single bytes in the font's own encoding, not UTF-8.
+     Encoding the stream with TextEncoder turned every Latin-1 character into
+     two UTF-8 bytes, and a reader taking the font one byte at a time printed
+     the first of the pair as a stray Â - which is how "289.6 km²" reached the
+     sheet as "289.6 kmÂ²", once for every zone row. Nothing above 0xFF is
+     reachable in WinAnsi anyway, so one byte per character is both correct
+     and lossless for everything pdfString can produce. */
+  function pdfBytes(str) {
+    const s = String(str);
+    const out = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i) & 0xFF;
+    return out;
+  }
 
   function pdfNum(n) { return (Math.round(n * 100) / 100).toString(); }
   function pdfColor(c) { return c.map(v => pdfNum(v)).join(' '); }
@@ -3769,9 +3990,11 @@
       const code = s.charCodeAt(i);
       if (ch === '(' || ch === ')' || ch === '\\') out += '\\' + ch;
       else if (code === 10 || code === 13 || code === 9) out += ' ';
-      /* Thin and hair spaces, and the primes used in DMS, all have sensible
-         plain-ASCII stand-ins. */
-      else if (code === 0x2000 || (code >= 0x2009 && code <= 0x200A) ||
+      /* Every space-like character the app can be handed - the no-break space
+         above all, which arrives in pasted names and notes - is not wanted on
+         a sheet and is written as a plain space. */
+      else if (code === 0xA0 || code === 0x2000 || code === 0x2007 ||
+               (code >= 0x2009 && code <= 0x200A) ||
                code === 0x202F || code === 0x205F || code === 0x3000) out += ' ';
       else if (code === 0x2032) out += "'";
       else if (code === 0x2033) out += '"';
@@ -3806,17 +4029,67 @@
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
 
-  /* Helvetica cannot be measured here, so cells are trimmed against an average
-     glyph width. It only has to be close enough not to spill into the next
-     column. */
-  const CHAR_W = 0.53;
+  /* Advance widths per 1000 em for the two base-14 faces the PDF uses, taken
+     from the Adobe AFM: [Helvetica, Helvetica-Bold]. Only printable ASCII is
+     listed; anything else falls back to a mid-width glyph.
 
-  function fitCell(text, width, size) {
+     This replaces a flat 0.53 em average, which under-measured capitals by up
+     to a third: headings were centred as if they were narrower than they
+     really are, so they spilled across the column rules and crowded the
+     heading next door, and trimmed cells could overrun their column. */
+  const PDF_GLYPHS = {
+    ' ': [278, 278], '!': [278, 333], '"': [355, 474], '#': [556, 556],
+    '$': [556, 556], '%': [889, 889], '&': [667, 722], "'": [191, 238],
+    '(': [333, 333], ')': [333, 333], '*': [389, 389], '+': [584, 584],
+    ',': [278, 278], '-': [333, 333], '.': [278, 278], '/': [278, 278],
+    '0': [556, 556], '1': [556, 556], '2': [556, 556], '3': [556, 556],
+    '4': [556, 556], '5': [556, 556], '6': [556, 556], '7': [556, 556],
+    '8': [556, 556], '9': [556, 556], ':': [278, 333], ';': [278, 333],
+    '<': [584, 584], '=': [584, 584], '>': [584, 584], '?': [556, 611],
+    '@': [1015, 975],
+    'A': [667, 722], 'B': [667, 722], 'C': [722, 722], 'D': [722, 722],
+    'E': [667, 667], 'F': [611, 611], 'G': [778, 778], 'H': [722, 722],
+    'I': [278, 278], 'J': [500, 556], 'K': [667, 722], 'L': [556, 611],
+    'M': [833, 833], 'N': [722, 722], 'O': [778, 778], 'P': [667, 667],
+    'Q': [778, 778], 'R': [722, 722], 'S': [667, 667], 'T': [611, 611],
+    'U': [722, 722], 'V': [667, 667], 'W': [944, 944], 'X': [667, 667],
+    'Y': [667, 667], 'Z': [611, 611],
+    '[': [278, 333], '\\': [278, 278], ']': [278, 333], '^': [469, 584],
+    '_': [556, 556], '`': [333, 333],
+    'a': [556, 556], 'b': [556, 611], 'c': [500, 556], 'd': [556, 611],
+    'e': [556, 556], 'f': [278, 333], 'g': [556, 611], 'h': [556, 611],
+    'i': [222, 278], 'j': [222, 278], 'k': [500, 556], 'l': [222, 278],
+    'm': [833, 889], 'n': [556, 611], 'o': [556, 611], 'p': [556, 611],
+    'q': [556, 611], 'r': [333, 389], 's': [500, 556], 't': [278, 333],
+    'u': [556, 611], 'v': [500, 556], 'w': [722, 778], 'x': [500, 556],
+    'y': [500, 556], 'z': [500, 500],
+    '{': [334, 389], '|': [260, 280], '}': [334, 389], '~': [584, 584]
+  };
+
+  /* The width of a string in the font it will be drawn with, in points. */
+  function pdfTextWidth(text, size, bold) {
+    const face = bold ? 1 : 0;
+    const s = String(text == null ? '' : text);
+    let em = 0;
+    for (let i = 0; i < s.length; i++) {
+      const g = PDF_GLYPHS[s[i]];
+      em += (g ? g[face] : 556) / 1000;
+    }
+    return em * size;
+  }
+
+  /* Trim a cell to what its column can actually hold, measured rather than
+     counted, so the text keeps its gutters instead of running into the next
+     column. */
+  function fitCell(text, width, size, bold) {
     const s = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
     if (!s) return '';
-    const max = Math.floor(width / (size * CHAR_W));
-    if (s.length <= max) return s;
-    return s.slice(0, Math.max(1, max - 1)).replace(/[ ,;]+$/, '') + '\u2026';
+    if (pdfTextWidth(s, size, bold) <= width) return s;
+    const ell = '\u2026';
+    if (pdfTextWidth(ell, size, bold) > width) return '';
+    let cut = s.length;
+    while (cut > 0 && pdfTextWidth(s.slice(0, cut) + ell, size, bold) > width) cut--;
+    return s.slice(0, cut).replace(/[ ,;]+$/, '') + ell;
   }
 
   /* Column widths are chosen to add up to the full text width
@@ -3826,12 +4099,15 @@
     { label: '#', w: 20, right: true },
     { label: 'Unit type', w: 92 },
     { label: 'Commander', w: 96 },
-    { label: 'Troops', w: 36, right: true },
+    /* TROOPS is a 32pt heading; 36 left it almost touching both column rules,
+       so it is widened and the space taken from the two grid-reference
+       columns, which have room to spare. */
+    { label: 'Troops', w: 44, right: true },
     { label: 'Vehicles', w: 78 },
     { label: 'Arms & ammo', w: 86 },
     { label: 'Equipment', w: 86 },
-    { label: 'Lat / Lon', w: 150, size: 7.2 },
-    { label: 'MGRS 8', w: 138, size: 7.2 }
+    { label: 'Lat / Lon', w: 146, size: 7.2 },
+    { label: 'MGRS 8', w: 134, size: 7.2 }
   ];
 
   const ZONE_COLS = [
@@ -3846,6 +4122,76 @@
 
   function colsWidth(cols) {
     return cols.reduce((sum, c) => sum + c.w, 0);
+  }
+
+  /* Whole points handed out in proportion to the weights, largest remainder,
+     so the shares add up to exactly the total asked for. */
+  function shareOut(weights, total) {
+    const out = weights.map(() => 0);
+    const sum = weights.reduce((a, b) => a + b, 0);
+    if (sum <= 0 || total <= 0) return out;
+    let used = 0;
+    weights.forEach((wt, i) => {
+      out[i] = Math.floor(total * wt / sum);
+      used += out[i];
+    });
+    for (let i = 0; used < total; i = (i + 1) % out.length, used++) out[i]++;
+    return out;
+  }
+
+  /* Column widths for one table, sized to what the rows actually have to hold.
+
+     The fixed widths above are the intended allocation, and they are left
+     exactly as they are whenever the text fits inside them, so an ordinary plan
+     looks precisely as it always has. A column whose content is wider than
+     that asks for the extra and pays for it out of the columns with room to
+     spare - which is what lets a long Details note fill the page instead of
+     being cut to an ellipsis. A column can never be squeezed below the width
+     its own heading needs, so no heading can be pushed off its line, and the
+     row always adds up to the full text width, so the grid still closes on the
+     right-hand margin. */
+  function colsToFit(base, rows) {
+    const PAD = 8;   /* the inset fitCell and the rules both work to */
+    const floor = base.map(c => Math.ceil(pdfTextWidth(c.label.toUpperCase(), 7.5, true) + PAD));
+    const need = base.map((c, i) => {
+      let w = floor[i];
+      rows.forEach(cells => {
+        const v = String(cells[i] == null ? '' : cells[i]).replace(/\s+/g, ' ').trim();
+        if (v) w = Math.max(w, Math.ceil(pdfTextWidth(v, c.size || 7.8, false) + PAD));
+      });
+      return w;
+    });
+
+    const width = base.map(c => c.w);
+    const want  = need.map((n, i) => Math.max(0, n - width[i]));
+    const spare = width.map((v, i) => Math.max(0, v - Math.max(need[i], floor[i])));
+    const move  = Math.min(want.reduce((a, b) => a + b, 0), spare.reduce((a, b) => a + b, 0));
+    if (move > 0) {
+      const give = shareOut(want, move);
+      const take = shareOut(spare, move);
+      width.forEach((v, i) => { width[i] = v + give[i] - take[i]; });
+    }
+
+    /* Anything still short after that fair share may come out of the slack the
+       other columns hold above their floors. The heading is the one thing that
+       must never be squeezed, and the floor is exactly that guarantee, so this
+       can hand a column the last point or two it needs to print in full rather
+       than lose its final character to an ellipsis. */
+    for (let i = 0; i < width.length; i++) {
+      while (width[i] < need[i]) {
+        let donor = -1, most = 0;
+        for (let j = 0; j < width.length; j++) {
+          if (j === i) continue;
+          const slack = width[j] - floor[j];
+          if (slack > most) { most = slack; donor = j; }
+        }
+        if (donor < 0) break;
+        width[i]++;
+        width[donor]--;
+      }
+    }
+
+    return base.map((c, i) => ({ label: c.label, w: width[i], size: c.size, right: c.right }));
   }
 
   /* Faint vertical rules: one between each pair of columns plus the two outer
@@ -3869,7 +4215,9 @@
     cols.forEach(c => {
       const label = c.label.toUpperCase();
       const size = 7.5;
-      const tx = c.right ? x + c.w - 4 - label.length * size * CHAR_W : x + 4;
+      /* Centred in the column, measured with the real glyph widths so the
+         heading lands where it looks centred and keeps clear air either side. */
+      const tx = x + Math.max(3, (c.w - pdfTextWidth(label, size, true)) / 2);
       ops.push(pdfTextOp(tx, y + PDF_HEAD_H / 2 - 2.6, size, label, true, [1, 1, 1]));
       x += c.w;
     });
@@ -3885,9 +4233,9 @@
     let x = PDF_M;
     cols.forEach((c, i) => {
       const size = c.size || 7.8;
-      const txt = fitCell(cells[i], c.w - 8, size);
+      const txt = fitCell(cells[i], c.w - 8, size, false);
       /* Numbers and grid references read better right-aligned. */
-      const tx = c.right ? x + c.w - 4 - txt.length * size * CHAR_W : x + 4;
+      const tx = c.right ? x + c.w - 4 - pdfTextWidth(txt, size, false) : x + 4;
       ops.push(pdfTextOp(tx, y + 4.5, size, txt, false, C_INK));
       x += c.w;
     });
@@ -3917,18 +4265,23 @@
     blocks.push({ kind: 'ops', ops: facts.ops.concat(types.ops), h: PDF_BODY_TOP - types.endY });
 
     if (exportPrefs.include.deployments) {
-      blocks.push({ kind: 'heading', h: 34, text: 'Deployments (' + markings.deployments.length + ')' });
-      markings.deployments.forEach((d, i) => {
+      /* The rows are built before the blocks so the columns can be sized to
+         what they actually have to carry. */
+      const rows = markings.deployments.map((d, i) => {
         normaliseDeployment(d);
+        return [
+          String(i + 1), unitLabel(d.type), d.commander || '', String(d.troops || ''),
+          d.vehicles || '', d.arms || '', d.equip || '',
+          Number(d.lat).toFixed(5) + ', ' + Number(d.lon).toFixed(5),
+          safeMgrs(d.lat, d.lon, 4)
+        ];
+      });
+      const cols = colsToFit(DEP_COLS, rows);
+      blocks.push({ kind: 'heading', h: 34, text: 'Deployments (' + markings.deployments.length + ')' });
+      rows.forEach((cells, i) => {
         blocks.push({
           kind: 'row', h: PDF_ROW_H + PDF_ROW_GAP, table: 'dep',
-          cols: DEP_COLS, banded: i % 2 === 1,
-          cells: [
-            String(i + 1), unitLabel(d.type), d.commander || '', String(d.troops || ''),
-            d.vehicles || '', d.arms || '', d.equip || '',
-            Number(d.lat).toFixed(5) + ', ' + Number(d.lon).toFixed(5),
-            safeMgrs(d.lat, d.lon, 4)
-          ]
+          cols, banded: i % 2 === 1, cells
         });
       });
       if (!markings.deployments.length) blocks.push({ kind: 'note', h: 16, text: 'No deployments in this plan.' });
@@ -3936,17 +4289,20 @@
     }
 
     if (exportPrefs.include.zones) {
-      blocks.push({ kind: 'heading', h: 34, text: 'Zones (' + markings.zones.length + ')' });
-      markings.zones.forEach((z, i) => {
+      const rows = markings.zones.map((z, i) => {
         const c = zoneCentre(z);
+        return [
+          String(i + 1), z.name, z.details || '', formatArea(z.areaM2), String((z.vertices || []).length),
+          c ? c.lat.toFixed(5) + ', ' + c.lon.toFixed(5) : '',
+          c ? safeMgrs(c.lat, c.lon, 4) : ''
+        ];
+      });
+      const cols = colsToFit(ZONE_COLS, rows);
+      blocks.push({ kind: 'heading', h: 34, text: 'Zones (' + markings.zones.length + ')' });
+      rows.forEach((cells, i) => {
         blocks.push({
           kind: 'row', h: PDF_ROW_H + PDF_ROW_GAP, table: 'zone',
-          cols: ZONE_COLS, banded: i % 2 === 1,
-          cells: [
-            String(i + 1), z.name, z.details || '', formatArea(z.areaM2), String((z.vertices || []).length),
-            c ? c.lat.toFixed(5) + ', ' + c.lon.toFixed(5) : '',
-            c ? safeMgrs(c.lat, c.lon, 4) : ''
-          ]
+          cols, banded: i % 2 === 1, cells
         });
       });
       if (!markings.zones.length) blocks.push({ kind: 'note', h: 16, text: 'No zones in this plan.' });
@@ -4026,13 +4382,16 @@
     let x = PDF_M + 8;
     used.forEach(t => {
       const label = t.label + '   ';
-      const w = label.length * 8 * CHAR_W + 18;
+      const w = pdfTextWidth(label, 8, false) + 18;
       if (x + w > PDF_W - PDF_M) { x = PDF_M + 8; y -= 16; }
       ops.push(pdfFillOp(x, y + 1, 8, 8, hexToRgb(t.color) || [0.5, 0.5, 0.5]));
       ops.push(pdfTextOp(x + 13, y + 2, 8, label, false, C_INK));
       x += w;
     });
-    return { ops, endY: y - 10 };
+    /* The chips finish well clear of whatever comes next - the Deployments
+       heading that usually follows needs room of its own, or the legend and
+       the table head read as one block. */
+    return { ops, endY: y - 20 };
   }
 
   function canvasToJpeg(canvas, quality) {
@@ -4059,12 +4418,12 @@
 
     if (img) {
       objs.push({
-        head: PDF_ENC.encode(
+        head: pdfBytes(
           '<< /Type /XObject /Subtype /Image /Width ' + img.width + ' /Height ' + img.height +
           ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode' +
           ' /Length ' + img.bytes.length + ' >>\nstream\n'),
         mid: img.bytes,
-        tail: PDF_ENC.encode('\nendstream')
+        tail: pdfBytes('\nendstream')
       });
     }
 
@@ -4078,9 +4437,9 @@
         ' /Contents ' + contentNum + ' 0 R >>'
       );
       objs.push({
-        head: PDF_ENC.encode('<< /Length ' + page.bytes.length + ' >>\nstream\n'),
+        head: pdfBytes('<< /Length ' + page.bytes.length + ' >>\nstream\n'),
         mid: page.bytes,
-        tail: PDF_ENC.encode('\nendstream')
+        tail: pdfBytes('\nendstream')
       });
     });
 
@@ -4088,16 +4447,16 @@
     let pos = 0;
     const put = u8 => { chunks.push(u8); pos += u8.length; };
 
-    put(PDF_ENC.encode('%PDF-1.4\n'));
+    put(pdfBytes('%PDF-1.4\n'));
     put(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));   /* binary marker */
 
     const offsets = [];
     objs.forEach((o, i) => {
       offsets[i + 1] = pos;
-      put(PDF_ENC.encode((i + 1) + ' 0 obj\n'));
-      if (typeof o === 'string') put(PDF_ENC.encode(o));
+      put(pdfBytes((i + 1) + ' 0 obj\n'));
+      if (typeof o === 'string') put(pdfBytes(o));
       else { put(o.head); put(o.mid); put(o.tail); }
-      put(PDF_ENC.encode('\nendobj\n'));
+      put(pdfBytes('\nendobj\n'));
     });
 
     let xref = 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n';
@@ -4106,7 +4465,7 @@
     }
     xref += 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\n' +
             'startxref\n' + pos + '\n%%EOF\n';
-    put(PDF_ENC.encode(xref));
+    put(pdfBytes(xref));
 
     return new Blob(chunks, { type: 'application/pdf' });
   }
@@ -4195,7 +4554,7 @@
         pdfTextOp(PDF_M, 26, 8, caption, false, C_MUTED),
         pdfTextOp(PDF_W - PDF_M, 26, 8, 'Page 1 of ' + total, false, C_MUTED)
       ];
-      pages.push({ bytes: PDF_ENC.encode(ops.join('\n')) });
+      pages.push({ bytes: pdfBytes(ops.join('\n')) });
     }
 
     /* The header and footer quote the page count, so they are stamped on once
@@ -4203,7 +4562,7 @@
     textPages.forEach((pageOps, i) => {
       const pageNo = (img ? 1 : 0) + i + 1;
       const ops = pageOps.concat(pdfPageChrome(pageNo, total));
-      pages.push({ bytes: PDF_ENC.encode(ops.join('\n')) });
+      pages.push({ bytes: pdfBytes(ops.join('\n')) });
     });
 
     return assemblePdf(pages, img);
@@ -4223,6 +4582,13 @@
 
   $('report-print-btn').addEventListener('click', openReport);
   $('report-png-btn').addEventListener('click', downloadPlanPng);
+
+  $('report-preview-btn').addEventListener('click', openPreview);
+  $('preview-close-btn').addEventListener('click', closePreview);
+  /* Printing rebuilds the sheet from scratch, so the preview can be as stale as
+     it likes - what matters is that the print dialog gets a fresh one. */
+  $('preview-print-btn').addEventListener('click', openReport);
+  $('preview-pdf-btn').addEventListener('click', downloadPlanPdf);
 
   /* ---- export options UI ---- */
   /* Every [data-pref] control is wired once at boot, so adding an option to

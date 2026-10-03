@@ -463,12 +463,14 @@
       </div>
 
       <div class="data-actions export-actions">
+        <button id="report-preview-btn" class="btn btn-ghost">&#128065; Preview sheet</button>
         <button id="report-print-btn" class="btn btn-ghost">&#128424; Print report</button>
         <button id="report-png-btn" class="btn btn-ghost">&#128444; Export PNG</button>
       </div>
 
-      <p class="note">Prints a one-page plan sheet (or save it as PDF) and exports the
-        same picture as a PNG.</p>
+      <p class="note">Previews the one-page plan sheet and redraws it as you change the
+        options above. <b>Print report</b> puts that same page on paper (or saves it as a
+        PDF); <b>Export PNG</b> takes the picture alone.</p>
 
       <div class="data-divider"></div>
 
@@ -1163,8 +1165,9 @@
 
           <p>Card 6 also keeps the browser-level tools: <b>Save to browser</b> and
              <b>Load from browser</b> (localStorage), <b>Copy all data</b> (the whole session JSON on
-             your clipboard), and <b>Print report</b>, which opens the browser's print dialog on the
-             same one-page sheet if you would rather print it yourself.</p>
+             your clipboard), <b>Preview sheet</b>, which shows that one-page sheet on screen and
+             redraws it as you change the options beside it, and <b>Print report</b>, which opens the
+             browser's print dialog on the very same page if you would rather print it yourself.</p>
         </section>
 
         <!-- ---------------- STEP 7 ---------------- -->
@@ -1572,68 +1575,188 @@
 </div>
 
 <!-- ===================== PRINTABLE REPORT ===================== -->
-<!-- Hidden on screen; the print stylesheet reveals this and hides everything else. -->
-<section id="report" class="report" aria-hidden="true">
-  <div class="report-sheet">
-    <header class="report-head">
-      <div class="report-brand">
-        <span class="report-logo" aria-hidden="true">
-          <svg viewBox="0 0 24 32" fill="none">
-            <path d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 20 12 20s12-11.5 12-20C24 5.373 18.627 0 12 0z" fill="#0FBFAE"/>
-            <circle cx="12" cy="12" r="4.6" fill="#062A2A"/>
-          </svg>
-        </span>
-        <div>
-          <h1 id="report-title">GIS Helper — Tactical Plan</h1>
-          <p id="report-sub">Generated</p>
-          <p id="report-scope"></p>
+<!-- Off screen until the preview opens it. The print stylesheet prints this and
+     drops everything else, the preview furniture included. -->
+<section id="report" class="report" aria-hidden="true" aria-label="Plan sheet">
+  <header class="preview-bar">
+    <div class="preview-bar-title">
+      <h2>Sheet preview</h2>
+      <p>The page <b>Print</b> sends to the paper, drawn live &mdash; change anything in the panel and it redraws.</p>
+    </div>
+    <div class="preview-bar-actions">
+      <span class="preview-busy" id="preview-busy">Redrawing&hellip;</span>
+      <button type="button" class="btn btn-ghost" id="preview-pdf-btn">Download PDF</button>
+      <button type="button" class="btn btn-ghost" id="preview-close-btn">Close</button>
+      <button type="button" class="btn btn-primary" id="preview-print-btn">Print</button>
+    </div>
+  </header>
+
+  <aside class="preview-side" aria-label="Print options">
+    <div class="preview-side-head">Print options</div>
+    <div class="export-opt">
+      <label class="lbl" for="pv-frame">Frame</label>
+      <select id="pv-frame" class="input" data-pref="frame">
+        <option value="all">All deployments, zones &amp; indicator</option>
+        <option value="view">Whatever the map is showing</option>
+        <option value="deployments">Deployments only</option>
+        <option value="zones">Zones only</option>
+        <option value="indicator">Map indicator only</option>
+      </select>
+    </div>
+
+    <div class="export-opt">
+      <label class="lbl" for="pv-mapscale">Map scale</label>
+      <select id="pv-mapscale" class="input" data-pref="scale">
+        <option value="auto">Auto &mdash; fit the whole plan</option>
+        <option value="5000">1:5 000</option>
+        <option value="10000">1:10 000</option>
+        <option value="25000">1:25 000</option>
+        <option value="50000">1:50 000</option>
+        <option value="100000">1:100 000</option>
+        <option value="250000">1:250 000</option>
+        <option value="500000">1:500 000</option>
+        <option value="1000000">1:1 000 000</option>
+        <option value="2000000">1:2 000 000</option>
+        <option value="5000000">1:5 000 000</option>
+        <option value="10000000">1:10 000 000</option>
+      </select>
+    </div>
+
+    <div class="export-opt">
+      <label class="lbl" for="pv-maptype">Map type</label>
+      <select id="pv-maptype" class="input" data-pref="mapType">
+        <option value="screen">Same as the map on screen</option>
+        <option value="standard">Standard (OSM)</option>
+        <option value="satellite">Satellite</option>
+        <option value="terrain">Terrain</option>
+        <option value="humanitarian">Humanitarian</option>
+      </select>
+    </div>
+
+    <div class="export-opt">
+      <label class="lbl" for="pv-orientation">North facing</label>
+      <select id="pv-orientation" class="input" data-pref="orientation">
+        <option value="north">North up</option>
+        <option value="fit">Rotate to fit</option>
+      </select>
+    </div>
+
+    <div class="export-opt">
+      <label class="lbl" for="pv-scaleunits">Scale bar</label>
+      <select id="pv-scaleunits" class="input" data-pref="scaleUnits">
+        <option value="both">Metric + imperial</option>
+        <option value="metric">Metric only</option>
+        <option value="imperial">Imperial only</option>
+        <option value="none">Hidden</option>
+      </select>
+    </div>
+
+    <div class="export-opt">
+      <label class="lbl" for="pv-title">Plan title <em>(optional)</em></label>
+      <input id="pv-title" class="input" type="text" maxlength="60" placeholder="e.g. Exercise Ironclad" data-pref="title" />
+    </div>
+
+    <div class="export-opt">
+      <label class="lbl" for="pv-date">Plan date <em>(optional)</em></label>
+      <input id="pv-date" class="input" type="date" data-pref="date" />
+    </div>
+
+    <div class="preview-side-head">Put on the sheet</div>
+    <label class="check-row" for="pv-inc-map">
+      <input type="checkbox" id="pv-inc-map" data-pref="include.map" />
+      <span>Map <em>&mdash; the rendered plan picture with all markings</em></span>
+    </label>
+
+    <label class="check-row" for="pv-inc-scale">
+      <input type="checkbox" id="pv-inc-scale" data-pref="include.scale" />
+      <span>Scale bar <em>&mdash; uses the units picked above</em></span>
+    </label>
+
+    <label class="check-row" for="pv-inc-north">
+      <input type="checkbox" id="pv-inc-north" data-pref="include.north" />
+      <span>North arrow <em>&mdash; rotates with the plan when Rotate to fit is on</em></span>
+    </label>
+
+    <label class="check-row" for="pv-inc-deployments">
+      <input type="checkbox" id="pv-inc-deployments" data-pref="include.deployments" />
+      <span>Deployments <em>&mdash; the full table of units, strengths and grid references</em></span>
+    </label>
+
+    <label class="check-row" for="pv-inc-zones">
+      <input type="checkbox" id="pv-inc-zones" data-pref="include.zones" />
+      <span>Zones <em>&mdash; name, area, vertex count and grid reference</em></span>
+    </label>
+
+    <p class="note">The same settings live in the sidebar and the <b>Download</b> dialog &mdash;
+      change one and all three follow. They are remembered in this browser.</p>
+  </aside>
+
+  <div class="preview-stage" id="preview-stage">
+    <div class="preview-frame" id="preview-frame">
+      <div class="preview-page">
+        <div class="report-sheet">
+          <header class="report-head">
+            <div class="report-brand">
+              <span class="report-logo" aria-hidden="true">
+                <svg viewBox="0 0 24 32" fill="none">
+                  <path d="M12 0C5.373 0 0 5.373 0 12c0 8.5 12 20 12 20s12-11.5 12-20C24 5.373 18.627 0 12 0z" fill="#0FBFAE"/>
+                  <circle cx="12" cy="12" r="4.6" fill="#062A2A"/>
+                </svg>
+              </span>
+              <div>
+                <h1 id="report-title">GIS Helper — Tactical Plan</h1>
+                <p id="report-sub">Generated</p>
+                <p id="report-scope"></p>
+              </div>
+            </div>
+            <dl class="report-facts">
+              <div><dt>Map indicator</dt><dd id="report-place">—</dd></div>
+              <div><dt>Lat / Lon (DD)</dt><dd id="report-latlon">—</dd></div>
+              <div><dt>MGRS 8-digit</dt><dd id="report-mgrs">—</dd></div>
+              <div><dt>ArcGIS XY (UTM)</dt><dd id="report-utm">—</dd></div>
+            </dl>
+          </header>
+
+          <figure class="report-figure" id="report-figure">
+            <img id="report-image" alt="Map showing the map indicator, marked deployments and drawn zones" />
+            <figcaption id="report-caption"></figcaption>
+          </figure>
+
+          <section class="report-block" id="report-deployments-block">
+            <h2>Deployments <span id="report-dep-count">(0)</span></h2>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Unit type</th><th>Commander</th><th>Troops</th>
+                  <th>Vehicles</th><th>Arms &amp; ammo</th><th>Equipment</th>
+                  <th>Lat / Lon</th><th>MGRS 8</th>
+                </tr>
+              </thead>
+              <tbody id="report-deployments-body"></tbody>
+            </table>
+          </section>
+
+          <section class="report-block" id="report-zones-block">
+            <h2>Zones <span id="report-zone-count">(0)</span></h2>
+            <table class="report-table">
+              <thead>
+                <tr><th>#</th><th>Name</th><th>Details</th><th>Area</th><th>Vertices</th><th>Centre (approx.)</th><th>MGRS 8</th></tr>
+              </thead>
+              <tbody id="report-zones-body"></tbody>
+            </table>
+          </section>
+
+          <section class="report-block" id="report-types-block">
+            <h2>Unit types in this plan</h2>
+            <div class="report-types" id="report-types"></div>
+          </section>
+
+          <footer class="report-foot">
+            <span>Produced with GIS Helper — no account, no server. The data never left the author&rsquo;s browser.</span>
+          </footer>
         </div>
       </div>
-      <dl class="report-facts">
-        <div><dt>Map indicator</dt><dd id="report-place">—</dd></div>
-        <div><dt>Lat / Lon (DD)</dt><dd id="report-latlon">—</dd></div>
-        <div><dt>MGRS 8-digit</dt><dd id="report-mgrs">—</dd></div>
-        <div><dt>ArcGIS XY (UTM)</dt><dd id="report-utm">—</dd></div>
-      </dl>
-    </header>
-
-    <figure class="report-figure" id="report-figure">
-      <img id="report-image" alt="Map showing the map indicator, marked deployments and drawn zones" />
-      <figcaption id="report-caption"></figcaption>
-    </figure>
-
-    <section class="report-block" id="report-deployments-block">
-      <h2>Deployments <span id="report-dep-count">(0)</span></h2>
-      <table class="report-table">
-        <thead>
-          <tr>
-            <th>#</th><th>Unit type</th><th>Commander</th><th>Troops</th>
-            <th>Vehicles</th><th>Arms &amp; ammo</th><th>Equipment</th>
-            <th>Lat / Lon</th><th>MGRS 8</th>
-          </tr>
-        </thead>
-        <tbody id="report-deployments-body"></tbody>
-      </table>
-    </section>
-
-    <section class="report-block" id="report-zones-block">
-      <h2>Zones <span id="report-zone-count">(0)</span></h2>
-      <table class="report-table">
-        <thead>
-          <tr><th>#</th><th>Name</th><th>Details</th><th>Area</th><th>Vertices</th><th>Centre (approx.)</th><th>MGRS 8</th></tr>
-        </thead>
-        <tbody id="report-zones-body"></tbody>
-      </table>
-    </section>
-
-    <section class="report-block" id="report-types-block">
-      <h2>Unit types in this plan</h2>
-      <div class="report-types" id="report-types"></div>
-    </section>
-
-    <footer class="report-foot">
-      <span>Produced with GIS Helper — no account, no server. The data never left the author&rsquo;s browser.</span>
-    </footer>
+    </div>
   </div>
 </section>
 

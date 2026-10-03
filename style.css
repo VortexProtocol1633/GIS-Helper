@@ -2635,9 +2635,9 @@ kbd {
 /* ============================================================
    PRINTABLE REPORT
    ============================================================ */
-/* Never shown on screen - the print stylesheet below is the only place this
-   becomes visible. Colours are hard-coded rather than themed, because a report
-   has to look the same regardless of which theme the author happened to pick. */
+/* Stowed away until either the print stylesheet or the on-screen preview opens
+   it. Colours are hard-coded rather than themed, because a report has to look
+   the same regardless of which theme the author happened to pick. */
 .report { display: none; }
 
 @media print {
@@ -2653,144 +2653,277 @@ kbd {
   body > *:not(#report) { display: none !important; }
 
   #report { display: block !important; }
+}
 
-  .report {
-    color: #16222E;
-    font-family: var(--font);
-    font-size: 9.5pt;
-    line-height: 1.45;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+/* ---- The sheet itself ----
+   These rules sit outside @media print on purpose: the on-screen preview draws
+   the very same markup with the very same declarations, so what you check
+   before printing is what reaches the paper. Only the rules that suppress the
+   rest of the page - and the preview furniture - are print-only, and they live
+   in the @media print block at the foot of this section. */
+.report {
+  color: #16222E;
+  font-family: var(--font);
+  font-size: 9.5pt;
+  line-height: 1.45;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.report-sheet { width: 100%; }
+
+.report-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10mm;
+  padding-bottom: 2mm;
+  margin-bottom: 2mm;
+  border-bottom: 2px solid #0FBFAE;
+}
+.report-brand { display: flex; align-items: center; gap: 4mm; }
+.report-logo svg { width: 9mm; height: 12mm; display: block; }
+.report-brand h1 { margin: 0; font-size: 15pt; font-weight: 700; color: #0B1622; letter-spacing: -0.2pt; }
+.report-brand p  { margin: 1mm 0 0; font-size: 8.5pt; color: #5B6B7A; }
+.report-brand p:empty { display: none; }
+
+.report-facts { margin: 0; display: grid; gap: 1.2mm; }
+.report-facts > div { display: flex; gap: 3mm; justify-content: space-between; }
+.report-facts dt { font-size: 8pt; color: #5B6B7A; text-transform: uppercase; letter-spacing: 0.4pt; }
+.report-facts dd { margin: 0; font-size: 9.5pt; font-weight: 600; color: #0B1622; font-variant-numeric: tabular-nums; }
+
+.report-figure { margin: 0 0 3mm; break-inside: avoid; text-align: center; }
+/* The sheet is sized by HEIGHT, not width. A 1600x1000 plan stretched to the
+   full page width is ~229mm tall on its own, which alone overruns an A4
+   landscape page and pushes the tables onto a second sheet. Capping the
+   height keeps the figure, the caption and both tables on one page, and
+   max-width still guards a very tall export. Long plans add the is-dense
+   class from script.js, which trades more picture for table rows. */
+.report-figure img {
+  display: block;
+  margin: 0 auto;
+  width: auto;
+  height: auto;
+  max-height: 68mm;
+  max-width: 100%;
+  border: 1px solid #C6D2DD;
+  border-radius: 2px;
+}
+.report-figure figcaption { margin-top: 1.5mm; font-size: 8pt; color: #5B6B7A; text-align: left; }
+
+/* A long order of battle leaves the picture very little room, so the tables
+   tighten up rather than spilling onto a second sheet. Padding and type drop
+   a little; the columns stay on one line each so the table stays readable. */
+.report-sheet.is-dense .report-figure img { max-height: 27mm; }
+/* Compacting the tables frees a predictable amount of page, so the map can
+   be handed some of it back. These steps are measured against the A4
+   landscape text block and keep every one of these row counts on one page. */
+.report-sheet.is-map-md .report-figure img { max-height: 40mm; }
+.report-sheet.is-map-lg .report-figure img { max-height: 52mm; }
+.report-sheet.is-dense .report-block { margin-bottom: 2mm; }
+.report-sheet.is-dense .report-block h2 { font-size: 9.5pt; margin-bottom: 1mm; }
+.report-sheet.is-dense .report-table { font-size: 7.5pt; }
+.report-sheet.is-dense .report-table th { padding: 0.9mm 1.1mm; font-size: 6.8pt; }
+.report-sheet.is-dense .report-table td { padding: 0.6mm 1.1mm; }
+.report-sheet.is-dense .report-table .mono { font-size: 7pt; }
+.report-sheet.is-dense .report-head { padding-bottom: 1.2mm; margin-bottom: 1.2mm; gap: 6mm; }
+.report-sheet.is-dense .report-brand h1 { font-size: 12.5pt; }
+.report-sheet.is-dense .report-brand p { font-size: 7.5pt; }
+.report-sheet.is-dense .report-logo svg { width: 7mm; height: 9mm; }
+.report-sheet.is-dense .report-facts dt { font-size: 7pt; }
+.report-sheet.is-dense .report-facts dd { font-size: 8.5pt; }
+.report-sheet.is-dense .report-figure { margin-bottom: 2mm; }
+.report-sheet.is-dense .report-figure figcaption { margin-top: 1mm; font-size: 7.2pt; }
+.report-sheet.is-dense .report-foot { margin-top: 1.5mm; padding-top: 1.5mm; font-size: 6.8pt; }
+
+/* A very long order of battle genuinely cannot share one page with a usable
+   map. Rather than shrink the picture into a stamp, give the type its size
+   back and let the sheet run onto a second page - readable beats compact. */
+.report-sheet.is-long .report-table { font-size: 8.5pt; }
+.report-sheet.is-long .report-table th { padding: 1.3mm 1.5mm; font-size: 7.5pt; }
+.report-sheet.is-long .report-table td { padding: 1.1mm 1.5mm; }
+.report-sheet.is-long .report-table .mono { font-size: 8pt; }
+.report-sheet.is-long .report-block h2 { font-size: 10.5pt; }
+.report-sheet.is-long .report-brand h1 { font-size: 15pt; }
+.report-sheet.is-long .report-figure img { max-height: 85mm; }
+
+.report-block { margin-bottom: 3mm; break-inside: avoid; }
+/* The unit types are a legend of chips, not another table, so they are held
+   a little further off whatever block precedes them than the blocks normally
+   sit from each other - the chips should never read as a last row of the
+   deployments table. */
+#report-types-block { margin-top: 4mm; }
+.report-sheet.is-dense #report-types-block { margin-top: 3mm; }
+.report-sheet.is-long #report-types-block { margin-top: 5mm; }
+.report-block h2 {
+  margin: 0 0 1.5mm;
+  font-size: 10.5pt;
+  font-weight: 700;
+  color: #0B1622;
+  padding-bottom: 1mm;
+  border-bottom: 1px solid #DCE4EC;
+}
+.report-block h2 span { color: #5B6B7A; font-weight: 500; }
+
+.report-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+/* Heads are centred inside their own column, so the labels read as one
+   evenly spaced band above the cell text, whatever each column's width is. */
+.report-table th {
+  text-align: center;
+  padding: 1.4mm 1.6mm;
+  background: #F1F5F9;
+  border-bottom: 1px solid #C6D2DD;
+  font-size: 7.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3pt;
+  color: #46586A;
+}
+.report-table td {
+  padding: 1.3mm 1.6mm;
+  border-bottom: 1px solid #EAEFF4;
+  vertical-align: top;
+}
+.report-table tbody tr { break-inside: avoid; }
+.report-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.report-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 8pt; }
+.report-empty { color: #7B8A99; font-style: italic; text-align: center; }
+
+.swatch {
+  display: inline-block;
+  width: 2.6mm; height: 2.6mm;
+  margin-right: 1.4mm;
+  border-radius: 1px;
+  vertical-align: middle;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.report-types { display: flex; flex-wrap: wrap; gap: 2mm 4mm; }
+.report-type { font-size: 8.5pt; }
+
+.report-foot {
+  margin-top: 2mm;
+  padding-top: 2mm;
+  border-top: 1px solid #DCE4EC;
+  font-size: 7.5pt;
+  color: #7B8A99;
+}
+
+/* ---- On-screen preview ----
+   The same sheet on a sheet of paper you can actually look at, with the
+   options beside it so a change can be seen the moment it is made. The
+   furniture around the page - bar, panel, scroll area - is screen-only. */
+.report.preview-open {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  grid-template-columns: 312px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'bar   bar'
+    'side  stage';
+  background: var(--bg-2);
+}
+
+.preview-bar {
+  grid-area: bar;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 18px;
+  background: var(--glass-strong);
+  backdrop-filter: var(--blur-strong);
+  -webkit-backdrop-filter: var(--blur-strong);
+  border-bottom: 1px solid var(--border);
+}
+.preview-bar-title h2 { margin: 0; font-size: 14px; font-weight: 600; color: var(--text); }
+.preview-bar-title p { margin: 2px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--muted); }
+.preview-bar-title b { color: var(--text-2); }
+.preview-bar-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+/* .btn is a full-width block button for the sidebar; in a toolbar it sizes to
+   its own label instead. */
+.preview-bar-actions .btn { width: auto; margin-top: 0; padding: 8px 14px; font-size: 12px; }
+
+.preview-busy {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.preview-busy.is-on { opacity: 1; }
+
+.preview-side {
+  grid-area: side;
+  overflow-y: auto;
+  padding: 16px 16px 24px;
+  background: var(--glass-2);
+  border-right: 1px solid var(--border-soft);
+}
+.preview-side-head {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.preview-side-head:not(:first-child) { margin-top: 22px; }
+.preview-side .note { margin-top: 18px; }
+
+.preview-stage {
+  grid-area: stage;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: auto;
+  padding: 22px;
+}
+
+/* The frame is sized to the scaled page by script.js. The page inside keeps the
+   true A4 landscape page - 297mm by 210mm with the @page 9mm margin - and is
+   scaled as one piece, so this is the print layout rather than a narrower
+   re-flow of it. */
+.preview-frame { flex: none; position: relative; transform-origin: top left; }
+.preview-page {
+  width: 297mm;
+  min-height: 210mm;
+  padding: 9mm;
+  background: #fff;
+  border-radius: 2px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .55);
+}
+
+/* Printing from the preview must give the same page as printing without it, so
+   the overlay and all of its furniture are undone and the sheet is left
+   sitting in the @page margin. The frame's transform and size are set inline
+   by script.js, hence the !important. */
+@media print {
+  #report.preview-open {
+    position: static !important;
+    inset: auto !important;
+    z-index: auto !important;
+    display: block !important;
+    background: none !important;
   }
-
-  .report-sheet { width: 100%; }
-
-  .report-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 10mm;
-    padding-bottom: 2mm;
-    margin-bottom: 2mm;
-    border-bottom: 2px solid #0FBFAE;
+  #report .preview-bar,
+  #report .preview-side { display: none !important; }
+  #report .preview-stage { display: block; overflow: visible; padding: 0; }
+  #report .preview-frame {
+    transform: none !important;
+    width: auto !important;
+    height: auto !important;
   }
-  .report-brand { display: flex; align-items: center; gap: 4mm; }
-  .report-logo svg { width: 9mm; height: 12mm; display: block; }
-  .report-brand h1 { margin: 0; font-size: 15pt; font-weight: 700; color: #0B1622; letter-spacing: -0.2pt; }
-  .report-brand p  { margin: 1mm 0 0; font-size: 8.5pt; color: #5B6B7A; }
-  .report-brand p:empty { display: none; }
-
-  .report-facts { margin: 0; display: grid; gap: 1.2mm; }
-  .report-facts > div { display: flex; gap: 3mm; justify-content: space-between; }
-  .report-facts dt { font-size: 8pt; color: #5B6B7A; text-transform: uppercase; letter-spacing: 0.4pt; }
-  .report-facts dd { margin: 0; font-size: 9.5pt; font-weight: 600; color: #0B1622; font-variant-numeric: tabular-nums; }
-
-  .report-figure { margin: 0 0 3mm; break-inside: avoid; text-align: center; }
-  /* The sheet is sized by HEIGHT, not width. A 1600x1000 plan stretched to the
-     full page width is ~229mm tall on its own, which alone overruns an A4
-     landscape page and pushes the tables onto a second sheet. Capping the
-     height keeps the figure, the caption and both tables on one page, and
-     max-width still guards a very tall export. Long plans add the is-dense
-     class from script.js, which trades more picture for table rows. */
-  .report-figure img {
-    display: block;
-    margin: 0 auto;
+  #report .preview-page {
     width: auto;
-    height: auto;
-    max-height: 68mm;
-    max-width: 100%;
-    border: 1px solid #C6D2DD;
-    border-radius: 2px;
-  }
-  .report-figure figcaption { margin-top: 1.5mm; font-size: 8pt; color: #5B6B7A; text-align: left; }
-
-  /* A long order of battle leaves the picture very little room, so the tables
-     tighten up rather than spilling onto a second sheet. Padding and type drop
-     a little; the columns stay on one line each so the table stays readable. */
-  .report-sheet.is-dense .report-figure img { max-height: 27mm; }
-  /* Compacting the tables frees a predictable amount of page, so the map can
-     be handed some of it back. These steps are measured against the A4
-     landscape text block and keep every one of these row counts on one page. */
-  .report-sheet.is-map-md .report-figure img { max-height: 40mm; }
-  .report-sheet.is-map-lg .report-figure img { max-height: 52mm; }
-  .report-sheet.is-dense .report-block { margin-bottom: 2mm; }
-  .report-sheet.is-dense .report-block h2 { font-size: 9.5pt; margin-bottom: 1mm; }
-  .report-sheet.is-dense .report-table { font-size: 7.5pt; }
-  .report-sheet.is-dense .report-table th { padding: 0.9mm 1.1mm; font-size: 6.8pt; }
-  .report-sheet.is-dense .report-table td { padding: 0.6mm 1.1mm; }
-  .report-sheet.is-dense .report-table .mono { font-size: 7pt; }
-  .report-sheet.is-dense .report-head { padding-bottom: 1.2mm; margin-bottom: 1.2mm; gap: 6mm; }
-  .report-sheet.is-dense .report-brand h1 { font-size: 12.5pt; }
-  .report-sheet.is-dense .report-brand p { font-size: 7.5pt; }
-  .report-sheet.is-dense .report-logo svg { width: 7mm; height: 9mm; }
-  .report-sheet.is-dense .report-facts dt { font-size: 7pt; }
-  .report-sheet.is-dense .report-facts dd { font-size: 8.5pt; }
-  .report-sheet.is-dense .report-figure { margin-bottom: 2mm; }
-  .report-sheet.is-dense .report-figure figcaption { margin-top: 1mm; font-size: 7.2pt; }
-  .report-sheet.is-dense .report-foot { margin-top: 1.5mm; padding-top: 1.5mm; font-size: 6.8pt; }
-
-  /* A very long order of battle genuinely cannot share one page with a usable
-     map. Rather than shrink the picture into a stamp, give the type its size
-     back and let the sheet run onto a second page - readable beats compact. */
-  .report-sheet.is-long .report-table { font-size: 8.5pt; }
-  .report-sheet.is-long .report-table th { padding: 1.3mm 1.5mm; font-size: 7.5pt; }
-  .report-sheet.is-long .report-table td { padding: 1.1mm 1.5mm; }
-  .report-sheet.is-long .report-table .mono { font-size: 8pt; }
-  .report-sheet.is-long .report-block h2 { font-size: 10.5pt; }
-  .report-sheet.is-long .report-brand h1 { font-size: 15pt; }
-  .report-sheet.is-long .report-figure img { max-height: 85mm; }
-
-  .report-block { margin-bottom: 3mm; break-inside: avoid; }
-  .report-block h2 {
-    margin: 0 0 1.5mm;
-    font-size: 10.5pt;
-    font-weight: 700;
-    color: #0B1622;
-    padding-bottom: 1mm;
-    border-bottom: 1px solid #DCE4EC;
-  }
-  .report-block h2 span { color: #5B6B7A; font-weight: 500; }
-
-  .report-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
-  .report-table th {
-    text-align: left;
-    padding: 1.4mm 1.6mm;
-    background: #F1F5F9;
-    border-bottom: 1px solid #C6D2DD;
-    font-size: 7.5pt;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.3pt;
-    color: #46586A;
-  }
-  .report-table td {
-    padding: 1.3mm 1.6mm;
-    border-bottom: 1px solid #EAEFF4;
-    vertical-align: top;
-  }
-  .report-table tbody tr { break-inside: avoid; }
-  .report-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .report-table .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 8pt; }
-  .report-empty { color: #7B8A99; font-style: italic; text-align: center; }
-
-  .swatch {
-    display: inline-block;
-    width: 2.6mm; height: 2.6mm;
-    margin-right: 1.4mm;
-    border-radius: 1px;
-    vertical-align: middle;
-    border: 1px solid rgba(0, 0, 0, 0.25);
-  }
-
-  .report-types { display: flex; flex-wrap: wrap; gap: 2mm 4mm; }
-  .report-type { font-size: 8.5pt; }
-
-  .report-foot {
-    margin-top: 2mm;
-    padding-top: 2mm;
-    border-top: 1px solid #DCE4EC;
-    font-size: 7.5pt;
-    color: #7B8A99;
+    min-height: 0;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
   }
 }
 

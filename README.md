@@ -75,6 +75,10 @@ A session contains:
   Helvetica fonts every reader already has — so there is still **no dependency to install**.
 - **Print report** renders the same idea as a single A4 landscape sheet and hands it to your
   browser's print dialog, for anyone who would rather print it themselves.
+- **Preview sheet** puts that sheet on screen first, with the print options in a panel beside it.
+  It is the same markup and the same stylesheet the print dialog uses, drawn on a page of A4 at
+  its true size (scaled down to fit the window), and it redraws the moment you change an option
+  or the plan itself — so you can check the page without spending a print.
 - **Download → PNG** gives the picture alone as `gis-helper-plan-YYYY-MM-DD.png` (1600×1000),
   with numbered pins that cross-reference the table, a scale bar, a north arrow and the base
   map's attribution.
