@@ -30,9 +30,10 @@ complete session to anyone else.
   ISR Platoon, HUMINT Platoon and Special Task.
 - **Create your own unit types** with custom names, icons (up to 3 each) and colours.
 - Per-deployment details: commander, troop strength, arms & ammo, special equipment.
-- **Polygon zones** with live area calculation in m² / km² and adjustable fill opacity.
-- Drag to reorder deployments, duplicate, fly-to, and delete entries.
+- **Polygon zones** with live area calculation in m² / km², adjustable fill opacity, and a free-text **Details** note.
+- Drag to reorder deployments, duplicate, fly-to, edit, and delete entries.
 - A map legend and an always-available zone/deployment list.
+- **Clear all op data** on the map wipes every deployment and zone at once.
 
 ### Data — download, upload, save, copy
 A **Download** button sits in the top bar (and one in the **Download & Upload** card). It opens a
@@ -63,7 +64,7 @@ A session contains:
 
 - the **map indicator** position and name,
 - every **deployment** (type, icon, colour, details, coordinates),
-- every **zone** (vertices, colour, opacity, computed area),
+- every **zone** (vertices, colour, opacity, details, computed area),
 - your **custom unit types**.
 
 ### PDF, print report & image export
@@ -92,7 +93,7 @@ can never disagree. Options are remembered in this browser.
 | Option | Values | Notes |
 | --- | --- | --- |
 | **Frame** | All deployments, zones & indicator · Whatever the map is showing · Deployments only · Zones only · Map indicator only | Chooses what the picture frames. Picking a preset with nothing in it tells you exactly what is missing instead of exporting a blank sheet. |
-| **Map type** | Same as the map on screen · Standard · Satellite · Terrain · Humanitarian · Dark | The base map drawn into the file. The default follows whatever the live map is showing, and choosing another one never changes the map on screen. |
+| **Map type** | Same as the map on screen · Standard · Satellite · Terrain · Humanitarian | The base map drawn into the file. The default follows whatever the live map is showing, and choosing another one never changes the map on screen. |
 | **North facing** | North up · Rotate to fit | North up is the default. Rotate to fit computes the plan's principal axis and spins the sheet onto it, so a long or diagonal plan fills the frame; the north arrow follows and the caption states the applied angle. |
 | **Map scale** | Auto · 1:5 000 · 1:10 000 · 1:25 000 · 1:50 000 · 1:100 000 and larger | A representative fraction, measured against the A4 landscape sheet the PDF is laid out on — at 1:25 000, 1 cm on the sheet is 250 m on the ground. **Auto** frames the whole plan and prints the scale it came out at; a fixed scale always wins, which on a tight plan means the picture crops it and the caption says so. The figure is printed on the sheet itself, under the scale bar. |
 | **Scale bar** | Metric + imperial · Metric · Imperial · Hidden | Imperial uses feet and miles. |
@@ -214,6 +215,7 @@ Handy if you want to generate or edit a plan programmatically. Pretty-printed JS
     {
       "id": "z9y8x7w6",
       "name": "Alpha Sector",
+      "details": "Phase line — do not cross without clearance",
       "color": "#FF6B6B",
       "opacity": 0.25,
       "vertices": [

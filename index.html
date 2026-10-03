@@ -328,6 +328,12 @@
         </div>
       </div>
 
+      <div class="zone-details-row">
+        <label class="lbl" for="zone-details">Details</label>
+        <textarea id="zone-details" class="input input-textarea" rows="2"
+          placeholder="What this zone is for — purpose, phase line, hazard, tasking…"></textarea>
+      </div>
+
       <div class="zone-actions">
         <button id="zone-draw-btn" class="btn btn-primary">&#9671; Start drawing zone</button>
         <button id="zone-stop-btn" class="btn btn-ghost">&#9632; Stop drawing</button>
@@ -358,7 +364,11 @@
       <div class="data-actions">
         <button id="data-save-btn" class="btn btn-primary">&#128190; Save to browser</button>
         <button id="data-load-btn" class="btn btn-ghost">&#128194; Load from browser</button>
+        <button id="data-clear-all-btn" class="btn btn-danger">&#128465; Clear all data</button>
       </div>
+
+      <p class="note">Clear all data removes every deployment and zone from the map and from
+        this browser. The map indicator and your custom unit types are left alone.</p>
 
       <div class="data-divider"></div>
 
@@ -426,7 +436,6 @@
             <option value="satellite">Satellite</option>
             <option value="terrain">Terrain</option>
             <option value="humanitarian">Humanitarian</option>
-            <option value="dark">Dark (CARTO)</option>
           </select>
         </div>
 
@@ -497,9 +506,6 @@
         <button class="layer-item" data-layer="humanitarian">
           <span class="layer-swatch sw-humanitarian"></span><span>Humanitarian</span>
         </button>
-        <button class="layer-item" data-layer="dark">
-          <span class="layer-swatch sw-dark"></span><span>Dark (CARTO)</span>
-        </button>
       </div>
     </div>
 
@@ -509,6 +515,14 @@
       <div class="hud-row"><span class="hud-label">ArcGIS XY</span><span class="hud-value" id="h-utm">—</span></div>
       <div class="hud-row"><span class="hud-label">MGRS 6</span><span class="hud-value" id="h-m6">—</span></div>
       <div class="hud-row"><span class="hud-label">MGRS 8</span><span class="hud-value" id="h-m8">—</span></div>
+      <div class="hud-footer">
+        <button id="map-clear-all-btn" class="hud-clear-btn" title="Remove every deployment and zone from the map">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          </svg>
+          <span>Clear all op data</span>
+        </button>
+      </div>
     </div>
   </section>
 
@@ -870,7 +884,7 @@
 
           <figure class="shot">
             <img src="Assets/guide/layers.jpg" width="610" height="374" loading="lazy" decoding="async"
-                 alt="The base map menu open, listing Standard, Satellite, Terrain, Humanitarian and Dark." />
+                 alt="The base map menu open, listing Standard, Satellite, Terrain and Humanitarian." />
             <figcaption><b>Figure 6</b> — the base-map switcher, top-right of the map. Whatever is
               selected here is what a download uses when <em>Map type</em> is left on
               <em>Same as the map on screen</em>.</figcaption>
@@ -1063,7 +1077,7 @@
             </div>
             <div class="help-row">
               <span>Map type</span>
-              <span>Same as the map &middot; Standard &middot; Satellite &middot; Terrain &middot; Humanitarian &middot; Dark</span>
+              <span>Same as the map &middot; Standard &middot; Satellite &middot; Terrain &middot; Humanitarian</span>
               <span>The base map drawn into the file. The map on screen does not change.</span>
             </div>
             <div class="help-row">
@@ -1452,6 +1466,111 @@
   </div>
 </div>
 
+<!-- ===================== EDIT MARKING ===================== -->
+<!-- One dialog edits a placed deployment or a drawn zone. Which half is shown
+     depends on what was opened, so the fields stay in one place in the markup. -->
+<div class="modal-overlay" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-title">
+  <div class="modal edit-modal" role="document">
+    <header class="modal-header">
+      <div class="modal-title">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"/>
+            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+          </svg>
+        </div>
+        <div>
+          <h2 id="edit-title">Edit deployment</h2>
+          <p id="edit-subtitle">Change the details of this marking.</p>
+        </div>
+      </div>
+      <button class="modal-close" id="edit-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      <div class="edit-preview-row">
+        <span class="edit-preview-label">Preview</span>
+        <div class="edit-preview" id="edit-preview"></div>
+        <span class="edit-preview-hint" id="edit-preview-hint"></span>
+      </div>
+
+      <div class="edit-grid">
+        <div class="edit-only-deploy">
+          <label class="lbl" for="edit-type">Unit type</label>
+          <select id="edit-type" class="input"></select>
+        </div>
+        <div class="edit-only-deploy">
+          <label class="lbl" for="edit-icon">Icon</label>
+          <select id="edit-icon" class="input"></select>
+        </div>
+      </div>
+
+      <div class="edit-grid">
+        <div>
+          <label class="lbl" for="edit-color">Color</label>
+          <div class="color-picker-wrap">
+            <input id="edit-color" type="color" class="input color-picker" value="#00F5D4" />
+            <input id="edit-color-hex" type="text" class="input color-hex" value="#00F5D4" maxlength="7" />
+          </div>
+        </div>
+        <div class="edit-only-zone">
+          <label class="lbl" for="edit-opacity">Fill opacity</label>
+          <input id="edit-opacity" class="input" type="range" min="0.1" max="0.8" step="0.05" value="0.35" />
+          <span class="range-val" id="edit-opacity-val">0.35</span>
+        </div>
+      </div>
+
+      <div class="edit-grid">
+        <div>
+          <label class="lbl" for="edit-name" id="edit-name-label">Commander</label>
+          <input id="edit-name" class="input" type="text" placeholder="Name / callsign" />
+        </div>
+        <div class="edit-only-deploy">
+          <label class="lbl" for="edit-troops">Troops</label>
+          <input id="edit-troops" class="input" type="number" min="0" value="0" />
+        </div>
+      </div>
+
+      <div class="edit-grid edit-only-deploy">
+        <div>
+          <label class="lbl" for="edit-vehicles">Vehicles</label>
+          <input id="edit-vehicles" class="input" type="text" placeholder="e.g. 2, or BTR-80 x1 + truck x3" />
+        </div>
+        <div>
+          <label class="lbl" for="edit-arms">Arms &amp; Ammo</label>
+          <input id="edit-arms" class="input" type="text" placeholder="e.g. AKM x20, RPG-7 x3" />
+        </div>
+      </div>
+
+      <div class="edit-grid edit-only-deploy" style="grid-template-columns:1fr;">
+        <div>
+          <label class="lbl" for="edit-equip">Special Equipment</label>
+          <textarea id="edit-equip" class="input input-textarea" rows="2" placeholder="Night vision, drones, comms gear…"></textarea>
+        </div>
+      </div>
+
+      <div class="edit-grid edit-only-zone" style="grid-template-columns:1fr;">
+        <div>
+          <label class="lbl" for="edit-details">Details</label>
+          <textarea id="edit-details" class="input input-textarea" rows="3"
+            placeholder="What this zone is for — purpose, phase line, hazard, tasking…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <footer class="modal-footer">
+      <span class="modal-footer-note">Changes apply to the map marker, the list and the saved data.</span>
+      <button class="btn btn-ghost modal-cta" id="edit-cancel-btn">Cancel</button>
+      <button class="btn btn-primary modal-cta" id="edit-save-btn">Save changes</button>
+    </footer>
+  </div>
+</div>
+
 <!-- ===================== PRINTABLE REPORT ===================== -->
 <!-- Hidden on screen; the print stylesheet reveals this and hides everything else. -->
 <section id="report" class="report" aria-hidden="true">
@@ -1501,7 +1620,7 @@
       <h2>Zones <span id="report-zone-count">(0)</span></h2>
       <table class="report-table">
         <thead>
-          <tr><th>#</th><th>Name</th><th>Area</th><th>Vertices</th><th>Centre (approx.)</th><th>MGRS 8</th></tr>
+          <tr><th>#</th><th>Name</th><th>Details</th><th>Area</th><th>Vertices</th><th>Centre (approx.)</th><th>MGRS 8</th></tr>
         </thead>
         <tbody id="report-zones-body"></tbody>
       </table>
@@ -1574,7 +1693,6 @@
               <option value="satellite">Satellite</option>
               <option value="terrain">Terrain</option>
               <option value="humanitarian">Humanitarian</option>
-              <option value="dark">Dark (CARTO)</option>
             </select>
           </div>
           <div>
@@ -1733,6 +1851,45 @@
     <footer class="modal-footer">
       <span class="modal-footer-note">Custom unit types are always merged in, never deleted.</span>
       <button class="btn btn-ghost modal-cta" id="import-cancel-btn">Cancel</button>
+    </footer>
+  </div>
+</div>
+
+<!-- ===================== CONFIRM DESTRUCTIVE ACTION ===================== -->
+<!-- Promise-based replacement for the browser confirm(), following the same
+     shape as the import prompt so a dismissed dialog always settles. -->
+<div class="modal-overlay" id="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <div class="modal confirm-modal" role="document">
+    <header class="modal-header">
+      <div class="modal-title">
+        <div class="modal-icon modal-icon-danger">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <line x1="10" y1="11" x2="10" y2="17"/>
+            <line x1="14" y1="11" x2="14" y2="17"/>
+          </svg>
+        </div>
+        <div>
+          <h2 id="confirm-title">Are you sure?</h2>
+          <p id="confirm-subtitle">This action cannot be undone.</p>
+        </div>
+      </div>
+      <button class="modal-close" id="confirm-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      <div class="confirm-message" id="confirm-message"></div>
+    </div>
+
+    <footer class="modal-footer">
+      <span class="modal-footer-note" id="confirm-note"></span>
+      <button class="btn btn-ghost modal-cta" id="confirm-cancel-btn">Cancel</button>
+      <button class="btn btn-danger modal-cta" id="confirm-ok-btn">Confirm</button>
     </footer>
   </div>
 </div>

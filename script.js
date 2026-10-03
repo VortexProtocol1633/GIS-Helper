@@ -439,6 +439,7 @@
 
     /* The import prompt is a promise, so it needs settling rather than just hiding. */
     if (importModal && importModal.classList.contains('open')) settleImport(null);
+    if (confirmModal && confirmModal.classList.contains('open')) settleConfirm(false);
     document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m));
 
     if (themeMenu.classList.contains('open')) {
@@ -468,9 +469,11 @@
     worldCopyJump: true
   }).setView([START.lat, START.lon], 13);
 
+  /* Bottom-left is left to the markings legend, so the scale bar sits under
+     the zoom buttons instead of landing on top of it. */
   L.control.zoom({ position: 'topleft' }).addTo(map);
+  L.control.scale({ position: 'topleft', imperial: true, metric: true }).addTo(map);
   L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map);
-  L.control.scale({ position: 'bottomleft', imperial: true, metric: true }).addTo(map);
 
   const baseLayers = {
     standard: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -488,10 +491,6 @@
     humanitarian: L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors, Tiles style by <a href="https://www.hotosm.org/">HOT</a>'
-    }),
-    dark: L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-      attribution: '&copy; OpenStreetMap contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
     })
   };
 
@@ -1117,6 +1116,11 @@
         '<div style="font-size:11px;color:#8899A6;border-top:1px solid rgba(255,255,255,.08);padding-top:5px;">' +
           '\uD83D\uDCC2 ' + d.lat.toFixed(5) + ', ' + d.lon.toFixed(5) +
         '</div>' +
+        '<button class="map-edit-btn" data-kind="deployment" data-id="' + d.id + '" ' +
+          'style="margin-top:8px;width:100%;padding:6px 10px;border-radius:8px;cursor:pointer;' +
+          'font-size:11.5px;font-weight:600;color:#062A2A;background:' + d.color + ';border:none;">' +
+          'Edit deployment' +
+        '</button>' +
       '</div>';
 
     m.bindPopup(popupHTML);
@@ -1239,6 +1243,7 @@
   const UI_GLYPH = {
     grip: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></svg>',
     copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'
   };
 
@@ -1352,6 +1357,7 @@
             '<div class="deploy-meta">' + unitLabel(d.type) + ' \u00B7 ' + meta.join(' \u00B7 ') + '</div>' +
           '</div>' +
           '<div class="deploy-row-actions">' +
+            '<button class="deploy-edit" title="Edit details" aria-label="Edit ' + name + '" data-id="' + d.id + '">' + UI_GLYPH.edit + '</button>' +
             '<button class="deploy-dup" title="Duplicate" aria-label="Duplicate ' + name + '" data-id="' + d.id + '">' + UI_GLYPH.copy + '</button>' +
             '<button class="deploy-del" title="Remove" aria-label="Remove ' + name + '" data-id="' + d.id + '">' + UI_GLYPH.trash + '</button>' +
           '</div>' +
@@ -1416,7 +1422,8 @@
     /* ---- click a row to fly to it ---- */
     items.forEach(item => {
       item.addEventListener('click', e => {
-        if (e.target.closest('.deploy-del') || e.target.closest('.deploy-dup') || e.target.closest('.deploy-grip')) return;
+        if (e.target.closest('.deploy-del') || e.target.closest('.deploy-dup') ||
+            e.target.closest('.deploy-edit') || e.target.closest('.deploy-grip')) return;
         if (dragDidMove) return;
         const d = markings.deployments.find(x => x.id === item.dataset.id);
         if (d) map.flyTo([d.lat, d.lon], Math.max(map.getZoom(), 15), { duration: 0.6 });
@@ -1444,6 +1451,14 @@
       btn.addEventListener('click', e => {
         e.stopPropagation();
         duplicateDeployment(btn.dataset.id);
+      });
+    });
+
+    /* ---- edit details ---- */
+    el.querySelectorAll('.deploy-edit').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        openEditDeployment(btn.dataset.id);
       });
     });
 
@@ -1581,13 +1596,14 @@
 
     const color   = $('zone-color').value;
     const name    = $('zone-name').value.trim() || 'Zone ' + (markings.zones.length + 1);
+    const details = $('zone-details').value.trim();
     const opacity = parseFloat($('zone-opacity').value) || 0.35;
-    const latlngs = drawVertices.map(v => [v.lat, v.lng]);
     const area    = polygonAreaM2(drawVertices);
 
     const entry = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       name,
+      details,
       color,
       opacity,
       vertices: drawVertices.map(v => ({ lat: +v.lat.toFixed(8), lng: +v.lng.toFixed(8) })),
@@ -1596,20 +1612,7 @@
     };
 
     markings.zones.push(entry);
-
-    const poly = L.polygon(latlngs, {
-      color: color,
-      weight: 2.5,
-      fillColor: color,
-      fillOpacity: opacity
-    }).addTo(zoneLayerGroup);
-
-    poly.bindPopup(
-      '<div style="font-family:var(--font);min-width:150px;">' +
-        '<div style="font-size:14px;font-weight:700;color:' + color + ';">' + name + '</div>' +
-        '<div style="font-size:11.5px;color:#B4C5D0;margin-top:4px;">\uD83D\uDCC2 ' + formatArea(area) + '</div>' +
-      '</div>'
-    );
+    drawZonePoly(entry);
 
     saveMarkings();
     renderZoneList();
@@ -1617,34 +1620,69 @@
     updateDataStatus();
     setStatus('Zone saved: ' + name + ' (' + formatArea(area) + ')', 'ok');
     $('zone-name').value = '';
+    $('zone-details').value = '';
+  }
+
+  function zonePopupHTML(z) {
+    return (
+      '<div style="font-family:var(--font);min-width:170px;">' +
+        '<div style="font-size:14px;font-weight:700;color:' + z.color + ';">' + z.name + '</div>' +
+        (z.details
+          ? '<div style="font-size:11.5px;color:#B4C5D0;line-height:1.6;margin-top:5px;white-space:pre-wrap;">' +
+              esc(z.details) + '</div>'
+          : '') +
+        '<div style="font-size:11.5px;color:#B4C5D0;margin-top:4px;">\uD83D\uDCC2 ' + formatArea(z.areaM2) + '</div>' +
+        '<button class="map-edit-btn" data-kind="zone" data-id="' + z.id + '" ' +
+          'style="margin-top:8px;width:100%;padding:6px 10px;border-radius:8px;cursor:pointer;' +
+          'font-size:11.5px;font-weight:600;color:#062A2A;background:' + z.color + ';border:none;">' +
+          'Edit zone' +
+        '</button>' +
+      '</div>'
+    );
+  }
+
+  /* Draws one stored zone onto the layer group. Kept in one place so an edit
+     only has to re-run it to refresh the polygon and its popup. */
+  function drawZonePoly(z) {
+    const poly = L.polygon((z.vertices || []).map(v => [v.lat, v.lng]), {
+      color: z.color,
+      weight: 2.5,
+      fillColor: z.color,
+      fillOpacity: z.opacity
+    }).addTo(zoneLayerGroup);
+
+    poly.bindPopup(zonePopupHTML(z));
+    return poly;
+  }
+
+  function redrawZones() {
+    zoneLayerGroup.clearLayers();
+    markings.zones.forEach(drawZonePoly);
+    renderLegend();
   }
 
   function removeZone(id) {
     markings.zones = markings.zones.filter(z => z.id !== id);
-    zoneLayerGroup.clearLayers();
-    markings.zones.forEach(z => {
-      const poly = L.polygon(z.vertices.map(v => [v.lat, v.lng]), {
-        color: z.color,
-        weight: 2.5,
-        fillColor: z.color,
-        fillOpacity: z.opacity
-      }).addTo(zoneLayerGroup);
-      poly.bindPopup(
-        '<div style="font-family:var(--font);min-width:150px;">' +
-          '<div style="font-size:14px;font-weight:700;color:' + z.color + ';">' + z.name + '</div>' +
-          '<div style="font-size:11.5px;color:#B4C5D0;margin-top:4px;">\uD83D\uDCC2 ' + formatArea(z.areaM2) + '</div>' +
-        '</div>'
-      );
-    });
+    redrawZones();
     saveMarkings();
     renderZoneList();
-    renderLegend();
     updateDataStatus();
   }
 
-  function clearAllZones() {
-    if (!markings.zones.length) return;
-    if (!confirm('Remove all zones?')) return;
+  async function clearAllZones() {
+    const n = markings.zones.length;
+    if (!n) return;
+
+    const ok = await askConfirm({
+      title: 'Clear all zones?',
+      subtitle: 'Every zone on the map is removed.',
+      html:
+        '<p>This removes <b>' + n + ' zone' + (n === 1 ? '' : 's') + '</b> from the map and from this browser.</p>' +
+        '<p>Deployments are not affected.</p>',
+      confirmLabel: 'Clear ' + n + ' zone' + (n === 1 ? '' : 's')
+    });
+    if (!ok) return;
+
     markings.zones = [];
     zoneLayerGroup.clearLayers();
     saveMarkings();
@@ -1668,15 +1706,19 @@
         '</div>' +
         '<div class="zone-info">' +
           '<div class="zone-name">' + z.name + '</div>' +
+          (z.details ? '<div class="zone-details" title="' + esc(z.details) + '">' + esc(z.details) + '</div>' : '') +
           '<div class="zone-meta">' + formatArea(z.areaM2) + ' \u00B7 ' + z.vertices.length + ' vertices</div>' +
         '</div>' +
-        '<button class="zone-del" title="Remove" data-id="' + z.id + '">\u00D7</button>' +
+        '<div class="zone-row-actions">' +
+          '<button class="zone-edit" title="Edit details" aria-label="Edit ' + z.name + '" data-id="' + z.id + '">' + UI_GLYPH.edit + '</button>' +
+          '<button class="zone-del" title="Remove" aria-label="Remove ' + z.name + '" data-id="' + z.id + '">\u00D7</button>' +
+        '</div>' +
       '</div>'
     )).join('');
 
     el.querySelectorAll('.zone-item').forEach(item => {
       item.addEventListener('click', (e) => {
-        if (e.target.closest('.zone-del')) return;
+        if (e.target.closest('.zone-del') || e.target.closest('.zone-edit')) return;
         const id = item.dataset.id;
         const z = markings.zones.find(x => x.id === id);
         if (z) {
@@ -1694,7 +1736,277 @@
         removeZone(btn.dataset.id);
       });
     });
+
+    el.querySelectorAll('.zone-edit').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openEditZone(btn.dataset.id);
+      });
+    });
   }
+
+  /* ============================================================
+     EDIT A PLACED MARKING
+     ============================================================
+     One dialog edits either a deployment or a zone. Fields that only make
+     sense for one of the two are hidden rather than disabled, so the dialog
+     never shows a control that would be ignored on save. */
+
+  const editModal    = $('edit-modal');
+  /* What is being edited: 'deployment' or 'zone', plus the stored id. */
+  let editTarget     = null;
+
+  /* Type <select> markup, shared by the placement form and the editor. */
+  function typeOptionsHTML() {
+    let html = builtinTypeList().map(t =>
+      '<option value="' + t.id + '">' + t.label + '</option>'
+    ).join('');
+
+    if (customUnitTypes.length) {
+      html += '<optgroup label="Your types">' + customUnitTypes.map(t =>
+        '<option value="' + t.id + '">' + t.label + '</option>'
+      ).join('') + '</optgroup>';
+    }
+    return html;
+  }
+
+  /* Rebuild the editor's icon list for the chosen type */
+  function refreshEditIcons() {
+    const sel = $('edit-icon');
+    const allowed = resolveType($('edit-type').value).icons;
+    const previous = sel.value;
+    sel.innerHTML = allowed.map(key =>
+      '<option value="' + key + '">' + (ICON_LABEL[key] || key) + '</option>'
+    ).join('');
+    sel.value = allowed.indexOf(previous) !== -1 ? previous : allowed[0];
+  }
+
+  function updateEditPreview() {
+    const color = $('edit-color').value;
+    const name  = $('edit-name').value.trim() || 'No name given';
+    const isZone = editTarget && editTarget.kind === 'zone';
+
+    if (isZone) {
+      /* A zone has no unit type, so the preview is just its fill and name. */
+      $('edit-preview').innerHTML =
+        '<div style="width:26px;height:26px;border-radius:6px;background:' + color +
+        ';border:2px solid ' + color + ';"></div>';
+      $('edit-preview-hint').innerHTML = '<b>' + name + '</b>';
+      return;
+    }
+
+    const icon = $('edit-icon').value;
+    $('edit-preview').innerHTML = buildBadgeHTML(icon, color, false);
+    $('edit-preview-hint').innerHTML = [
+      '<b>' + resolveType($('edit-type').value).label + '</b>',
+      (ICON_LABEL[icon] || icon) + ' icon',
+      name
+    ].join(' \u00B7 ');
+  }
+
+  /* Shows or hides the field groups that belong to one kind of marking.
+     The stylesheet hides both groups by default, so the shown one needs an
+     explicit display value rather than being reset back to the default. */
+  function setEditMode(kind) {
+    const isZone = kind === 'zone';
+
+    editModal.querySelectorAll('.edit-only-zone, .edit-only-deploy').forEach(el => {
+      const show = el.classList.contains('edit-only-zone') ? isZone : !isZone;
+      el.style.display = show ? (el.classList.contains('edit-grid') ? 'grid' : 'block') : 'none';
+    });
+
+    $('edit-title').textContent = isZone ? 'Edit zone' : 'Edit deployment';
+    $('edit-subtitle').textContent = isZone
+      ? 'Rename the zone or change how it is drawn on the map.'
+      : 'Change the unit, its details, or where it sits in the list.';
+    $('edit-name-label').textContent = isZone ? 'Zone name' : 'Commander';
+    $('edit-name').placeholder = isZone ? 'e.g. Alpha Sector' : 'Name / callsign';
+  }
+
+  function openEditDeployment(id) {
+    const d = markings.deployments.find(x => x.id === id);
+    if (!d) return;
+    normaliseDeployment(d);
+
+    editTarget = { kind: 'deployment', id };
+    setEditMode('deployment');
+
+    $('edit-type').innerHTML = typeOptionsHTML();
+    $('edit-type').value = d.type;
+    refreshEditIcons();
+    $('edit-icon').value = d.icon;
+    $('edit-color').value = d.color;
+    $('edit-color-hex').value = d.color;
+    $('edit-name').value = d.commander || '';
+    $('edit-troops').value = d.troops || 0;
+    $('edit-vehicles').value = d.vehicles || '';
+    $('edit-arms').value = d.arms || '';
+    $('edit-equip').value = d.equip || '';
+    updateEditPreview();
+
+    openModal(editModal);
+    setTimeout(() => $('edit-name').focus(), 80);
+  }
+
+  function openEditZone(id) {
+    const z = markings.zones.find(x => x.id === id);
+    if (!z) return;
+
+    editTarget = { kind: 'zone', id };
+    setEditMode('zone');
+
+    /* Zones have no unit type or icon, so only the fill, the name and the
+       free-text details apply. */
+    $('edit-color').value = z.color;
+    $('edit-color-hex').value = z.color;
+    $('edit-opacity').value = z.opacity;
+    $('edit-opacity-val').textContent = Number(z.opacity).toFixed(2);
+    $('edit-name').value = z.name;
+    $('edit-details').value = z.details || '';
+    updateEditPreview();
+
+    openModal(editModal);
+    setTimeout(() => { $('edit-name').focus(); $('edit-name').select(); }, 80);
+  }
+
+  function closeEditModal() {
+    closeModal(editModal);
+    editTarget = null;
+  }
+
+  function saveEdit() {
+    if (!editTarget) return;
+
+    const color = $('edit-color').value;
+    const name  = $('edit-name').value.trim();
+
+    if (editTarget.kind === 'zone') {
+      const z = markings.zones.find(x => x.id === editTarget.id);
+      if (!z) { closeEditModal(); return; }
+
+      z.name    = name || z.name;
+      z.details = $('edit-details').value.trim();
+      z.color   = color;
+      z.opacity = parseFloat($('edit-opacity').value) || 0.35;
+
+      redrawZones();
+      saveMarkings();
+      renderZoneList();
+      updateDataStatus();
+      closeEditModal();
+      setStatus('Zone updated: ' + z.name, 'ok');
+      return;
+    }
+
+    const d = markings.deployments.find(x => x.id === editTarget.id);
+    if (!d) { closeEditModal(); return; }
+
+    d.type      = $('edit-type').value;
+    d.icon      = $('edit-icon').value;
+    d.color     = color;
+    d.commander = name;
+    d.troops    = parseInt($('edit-troops').value, 10) || 0;
+    d.vehicles  = $('edit-vehicles').value.trim();
+    d.arms      = $('edit-arms').value.trim();
+    d.equip     = $('edit-equip').value.trim();
+
+    redrawDeployments();
+    saveMarkings();
+    renderDeployList();
+    updateDataStatus();
+    closeEditModal();
+    setStatus('Deployment updated: ' + (d.commander || unitLabel(d.type)), 'ok');
+  }
+
+  /* ---- editor wiring ---- */
+  $('edit-close').addEventListener('click', closeEditModal);
+  $('edit-cancel-btn').addEventListener('click', closeEditModal);
+  $('edit-save-btn').addEventListener('click', saveEdit);
+  editModal.addEventListener('click', (e) => {
+    if (e.target === editModal) closeEditModal();
+  });
+
+  $('edit-type').addEventListener('change', () => { refreshEditIcons(); updateEditPreview(); });
+  $('edit-icon').addEventListener('change', updateEditPreview);
+  $('edit-color').addEventListener('input', () => {
+    $('edit-color-hex').value = $('edit-color').value;
+    updateEditPreview();
+  });
+  $('edit-color-hex').addEventListener('input', () => {
+    const v = $('edit-color-hex').value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(v)) {
+      $('edit-color').value = v;
+      updateEditPreview();
+    }
+  });
+  $('edit-opacity').addEventListener('input', () => {
+    $('edit-opacity-val').textContent = parseFloat($('edit-opacity').value).toFixed(2);
+  });
+  $('edit-name').addEventListener('input', updateEditPreview);
+
+  /* Enter saves, matching the other dialogs' forms. */
+  editModal.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault();
+      saveEdit();
+    }
+  });
+
+  /* The edit buttons inside Leaflet popups are created on demand, so they are
+     handled by delegation rather than wired when the popup opens. */
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.map-edit-btn');
+    if (!btn) return;
+    e.preventDefault();
+    if (btn.dataset.kind === 'zone') openEditZone(btn.dataset.id);
+    else openEditDeployment(btn.dataset.id);
+  });
+
+  /* ============================================================
+     CLEAR ALL DEPLOYMENTS AND ZONES
+     ============================================================ */
+  async function clearAllMarkings() {
+    if (isDrawingZone) stopZoneDrawing(false);
+
+    const dep = markings.deployments.length;
+    const zon = markings.zones.length;
+    const count = dep + zon;
+    if (!count) {
+      setStatus('There is nothing to clear.', 'warn');
+      return;
+    }
+
+    const counts = [];
+    if (dep) counts.push('<span><b>' + dep + '</b> deployment' + (dep === 1 ? '' : 's') + '</span>');
+    if (zon) counts.push('<span><b>' + zon + '</b> zone' + (zon === 1 ? '' : 's') + '</span>');
+
+    const ok = await askConfirm({
+      title: 'Clear all operational data?',
+      subtitle: 'This cannot be undone.',
+      html:
+        '<p>Every deployment and zone is removed from the map, from the sidebar lists and from this browser.</p>' +
+        '<div class="confirm-counts">' + counts.join('') + '</div>',
+      note: 'Your <b>map indicator</b> and <b>custom unit types</b> are kept.',
+      confirmLabel: 'Clear everything'
+    });
+    if (!ok) return;
+
+    markings.deployments = [];
+    markings.zones = [];
+    drawLayer.clearLayers();
+    drawVertices = [];
+    redrawDeployments();
+    redrawZones();
+    saveMarkings();
+    renderDeployList();
+    renderZoneList();
+    updateDataStatus();
+    setStatus('Cleared all deployments and zones.', 'warn');
+  }
+
+  $('data-clear-all-btn').addEventListener('click', clearAllMarkings);
+  /* The same action is offered on the map itself, in the readout panel. */
+  $('map-clear-all-btn').addEventListener('click', clearAllMarkings);
 
   /* ============================================================
      19. LEGEND
@@ -1801,24 +2113,9 @@
 
   function applyMarkingsToMap() {
     redrawDeployments();
-    zoneLayerGroup.clearLayers();
-    markings.zones.forEach(z => {
-      const poly = L.polygon(z.vertices.map(v => [v.lat, v.lng]), {
-        color: z.color,
-        weight: 2.5,
-        fillColor: z.color,
-        fillOpacity: z.opacity
-      }).addTo(zoneLayerGroup);
-      poly.bindPopup(
-        '<div style="font-family:var(--font);min-width:150px;">' +
-          '<div style="font-size:14px;font-weight:700;color:' + z.color + ';">' + z.name + '</div>' +
-          '<div style="font-size:11.5px;color:#B4C5D0;margin-top:4px;">\uD83D\uDCC2 ' + formatArea(z.areaM2) + '</div>' +
-        '</div>'
-      );
-    });
+    redrawZones();
     renderDeployList();
     renderZoneList();
-    renderLegend();
     updateDataStatus();
   }
 
@@ -1919,6 +2216,43 @@
   $('import-close').addEventListener('click',       () => settleImport(null));
   importModal.addEventListener('click', (e) => {
     if (e.target === importModal) settleImport(null);
+  });
+
+  /* ---- confirmation prompt (replaces confirm()) ----
+     Same promise shape as the import prompt, so every way out of the dialog -
+     the buttons, the overlay, Escape - settles the promise and the calling
+     code never waits on a dialog that has already gone. */
+  const confirmModal    = $('confirm-modal');
+  let confirmResolver   = null;
+
+  function askConfirm(opts) {
+    return new Promise(resolve => {
+      /* A second click would orphan the first promise, so cancel that one. */
+      if (confirmResolver) settleConfirm(false);
+      confirmResolver = resolve;
+      $('confirm-title').textContent    = opts.title;
+      $('confirm-subtitle').textContent = opts.subtitle || 'This action cannot be undone.';
+      $('confirm-message').innerHTML    = opts.html;
+      $('confirm-ok-btn').textContent   = opts.confirmLabel || 'Confirm';
+      $('confirm-note').innerHTML       = opts.note || '';
+      $('confirm-note').style.display   = opts.note ? '' : 'none';
+      openModal(confirmModal);
+      setTimeout(() => $('confirm-cancel-btn').focus(), 80);
+    });
+  }
+
+  function settleConfirm(ok) {
+    if (confirmModal.classList.contains('open')) closeModal(confirmModal);
+    const r = confirmResolver;
+    confirmResolver = null;
+    if (r) r(ok);
+  }
+
+  $('confirm-ok-btn').addEventListener('click',    () => settleConfirm(true));
+  $('confirm-cancel-btn').addEventListener('click', () => settleConfirm(false));
+  $('confirm-close').addEventListener('click',     () => settleConfirm(false));
+  confirmModal.addEventListener('click', (e) => {
+    if (e.target === confirmModal) settleConfirm(false);
   });
 
   function importMarkingsFile(file) {
@@ -2117,18 +2451,7 @@
   function renderTypeSelect() {
     const sel = $('deploy-type');
     const current = sel.value;
-
-    let html = builtinTypeList().map(t =>
-      '<option value="' + t.id + '">' + t.label + '</option>'
-    ).join('');
-
-    if (customUnitTypes.length) {
-      html += '<optgroup label="Your types">' + customUnitTypes.map(t =>
-        '<option value="' + t.id + '">' + t.label + '</option>'
-      ).join('') + '</optgroup>';
-    }
-
-    sel.innerHTML = html;
+    sel.innerHTML = typeOptionsHTML();
     sel.value = getUnitType(current) ? current : DEFAULT_TYPE;
   }
 
@@ -2299,18 +2622,27 @@
     setStatus((wasEditing ? 'Updated' : 'Created') + ' unit type: ' + saved.label, 'ok');
   }
 
-  function removeCustomType(id) {
+  async function removeCustomType(id) {
     const t = customUnitTypes.find(x => x.id === id);
     if (!t) return;
 
     const used = customTypeInUse(id);
-    const msg = used
-      ? 'Delete "' + t.label + '"?\n\n' + used + ' deployment' + (used > 1 ? 's' : '') +
-        ' currently use' + (used > 1 ? '' : 's') + ' this type. They will be reassigned to "' +
-        BUILTIN_UNIT_TYPES[DEFAULT_TYPE].label + '" and keep their own details.'
-      : 'Delete the custom type "' + t.label + '"?';
+    const fallback = BUILTIN_UNIT_TYPES[DEFAULT_TYPE].label;
 
-    if (!confirm(msg)) return;
+    const html = used
+      ? '<p><b>' + esc(t.label) + '</b> is used by <b>' + used + ' deployment' + (used > 1 ? 's' : '') +
+        '</b> on the map right now.</p>' +
+        '<p>They will be reassigned to <b>' + esc(fallback) + '</b> and keep their own details.</p>'
+      : '<p>The custom type <b>' + esc(t.label) + '</b> will be removed.</p>';
+
+    const ok = await askConfirm({
+      title: 'Delete this unit type?',
+      subtitle: used ? 'Deployments using it will be reassigned.' : 'It is not in use.',
+      html,
+      note: 'The type is removed from this browser and from any file you export later.',
+      confirmLabel: 'Delete type'
+    });
+    if (!ok) return;
 
     const wasEditing = editingTypeId === id;
     const res = deleteCustomType(id);
@@ -2402,7 +2734,7 @@
   ];
   const exportPrefs = {
     frame: 'all',           // all | view | deployments | zones | indicator
-    mapType: 'screen',      // screen | standard | satellite | terrain | humanitarian | dark
+    mapType: 'screen',      // screen | standard | satellite | terrain | humanitarian
     orientation: 'north',   // north (north up) | fit (rotate onto the plan's long axis)
     scale: 'auto',          // auto (frame the plan) | a representative fraction, e.g. '25000'
     scaleUnits: 'both',     // both | metric | imperial | none
@@ -2420,7 +2752,7 @@
       const d = JSON.parse(raw) || {};
       if (['all', 'view', 'deployments', 'zones', 'indicator'].indexOf(d.frame) !== -1) exportPrefs.frame = d.frame;
       if (['both', 'metric', 'imperial', 'none'].indexOf(d.scaleUnits) !== -1) exportPrefs.scaleUnits = d.scaleUnits;
-      if (['screen', 'standard', 'satellite', 'terrain', 'humanitarian', 'dark'].indexOf(d.mapType) !== -1) exportPrefs.mapType = d.mapType;
+      if (['screen', 'standard', 'satellite', 'terrain', 'humanitarian'].indexOf(d.mapType) !== -1) exportPrefs.mapType = d.mapType;
       if (SCALE_CHOICES.indexOf(String(d.scale)) !== -1) exportPrefs.scale = String(d.scale);
       if (['north', 'fit'].indexOf(d.orientation) !== -1) exportPrefs.orientation = d.orientation;
       /* Older browsers only stored a "rotate to fit" flag. */
@@ -2482,8 +2814,7 @@
       standard: 'Standard (OSM)',
       satellite: 'Satellite',
       terrain: 'Terrain',
-      humanitarian: 'Humanitarian',
-      dark: 'Dark (CARTO)'
+      humanitarian: 'Humanitarian'
     }[name] || name;
   }
 
@@ -3169,13 +3500,14 @@
           return '<tr>' +
             '<td class="num">' + (i + 1) + '</td>' +
             '<td><span class="swatch" style="background:' + esc(z.color) + '"></span>' + esc(z.name) + '</td>' +
+            '<td>' + (z.details ? esc(z.details) : '\u2014') + '</td>' +
             '<td class="num">' + esc(formatArea(z.areaM2)) + '</td>' +
             '<td class="num">' + vs.length + '</td>' +
             '<td class="mono">' + (clat === null ? '\u2014' : clat.toFixed(5) + ', ' + clon.toFixed(5)) + '</td>' +
             '<td class="mono">' + (clat === null ? '\u2014' : esc(safeMgrs(clat, clon, 4))) + '</td>' +
           '</tr>';
         }).join('')
-      : '<tr><td colspan="6" class="report-empty">No zones in this plan.</td></tr>';
+      : '<tr><td colspan="7" class="report-empty">No zones in this plan.</td></tr>';
 
     /* Only the unit types this plan actually uses, so the sheet stays short. */
     const used = [];
@@ -3402,11 +3734,16 @@
   const PDF_BODY_TOP = PDF_H - 74;
   const PDF_BOTTOM = 42;
   const PDF_ROW_H = 15;
+  /* A header band and a gap under every row, so the tables read as grids
+     rather than as a wall of text. */
+  const PDF_HEAD_H = 16;
+  const PDF_ROW_GAP = 5;
 
   const C_INK    = [0.06, 0.09, 0.12];
   const C_MUTED  = [0.40, 0.46, 0.52];
   const C_ACCENT = [0.00, 0.66, 0.60];
   const C_RULE   = [0.79, 0.83, 0.87];
+  const C_GRID   = [0.88, 0.91, 0.94];
   const C_HEADBG = [0.11, 0.16, 0.20];
   const C_BAND   = [0.96, 0.97, 0.98];
 
@@ -3482,41 +3819,69 @@
     return s.slice(0, Math.max(1, max - 1)).replace(/[ ,;]+$/, '') + '\u2026';
   }
 
+  /* Column widths are chosen to add up to the full text width
+     (PDF_W - 2 * PDF_M = 782), so the grid lines close on the right-hand
+     margin instead of stopping short. */
   const DEP_COLS = [
-    { label: '#', w: 22, right: true },
+    { label: '#', w: 20, right: true },
     { label: 'Unit type', w: 92 },
-    { label: 'Commander', w: 92 },
-    { label: 'Troops', w: 40, right: true },
-    { label: 'Vehicles', w: 84 },
-    { label: 'Arms & ammo', w: 96 },
-    { label: 'Equipment', w: 96 },
-    { label: 'Lat / Lon', w: 118, size: 7.2 },
-    { label: 'MGRS 8', w: 100, size: 7.2 }
+    { label: 'Commander', w: 96 },
+    { label: 'Troops', w: 36, right: true },
+    { label: 'Vehicles', w: 78 },
+    { label: 'Arms & ammo', w: 86 },
+    { label: 'Equipment', w: 86 },
+    { label: 'Lat / Lon', w: 150, size: 7.2 },
+    { label: 'MGRS 8', w: 138, size: 7.2 }
   ];
 
   const ZONE_COLS = [
-    { label: '#', w: 22, right: true },
-    { label: 'Zone name', w: 120 },
-    { label: 'Area', w: 90, right: true },
-    { label: 'Vertices', w: 50, right: true },
-    { label: 'Centre (approx.)', w: 150, size: 7.2 },
-    { label: 'MGRS 8', w: 120, size: 7.2 }
+    { label: '#', w: 20, right: true },
+    { label: 'Zone name', w: 118 },
+    { label: 'Details', w: 150, size: 7.2 },
+    { label: 'Area', w: 78, right: true },
+    { label: 'Vertices', w: 48, right: true },
+    { label: 'Centre (approx.)', w: 158, size: 7.2 },
+    { label: 'MGRS 8', w: 210, size: 7.2 }
   ];
 
-  function pdfTableHeaderOps(cols, y) {
-    const ops = [pdfFillOp(PDF_M, y, PDF_W - 2 * PDF_M, PDF_ROW_H, C_HEADBG)];
+  function colsWidth(cols) {
+    return cols.reduce((sum, c) => sum + c.w, 0);
+  }
+
+  /* Faint vertical rules: one between each pair of columns plus the two outer
+     edges, so the table reads as a bordered grid. */
+  function pdfColRules(cols, y, h) {
+    const w = colsWidth(cols);
+    const ops = [pdfLineOp(PDF_M, y, PDF_M, y + h, C_GRID),
+                 pdfLineOp(PDF_M + w, y, PDF_M + w, y + h, C_GRID)];
     let x = PDF_M;
-    cols.forEach(c => {
-      ops.push(pdfTextOp(x + 4, y + 4.5, 7.5, c.label.toUpperCase(), true, [1, 1, 1]));
+    cols.slice(0, -1).forEach(c => {
       x += c.w;
+      ops.push(pdfLineOp(x, y, x, y + h, C_GRID));
     });
     return ops;
   }
 
+  function pdfTableHeaderOps(cols, y) {
+    const w = colsWidth(cols);
+    const ops = [pdfFillOp(PDF_M, y, w, PDF_HEAD_H, C_HEADBG)];
+    let x = PDF_M;
+    cols.forEach(c => {
+      const label = c.label.toUpperCase();
+      const size = 7.5;
+      const tx = c.right ? x + c.w - 4 - label.length * size * CHAR_W : x + 4;
+      ops.push(pdfTextOp(tx, y + PDF_HEAD_H / 2 - 2.6, size, label, true, [1, 1, 1]));
+      x += c.w;
+    });
+    ops.push.apply(ops, pdfColRules(cols, y, PDF_HEAD_H));
+    ops.push(pdfLineOp(PDF_M, y, PDF_M + w, y, C_ACCENT));
+    return ops;
+  }
+
   function pdfTableRowOps(cols, cells, y, banded) {
+    const w = colsWidth(cols);
     const ops = [];
-    if (banded) ops.push(pdfFillOp(PDF_M, y, PDF_W - 2 * PDF_M, PDF_ROW_H, C_BAND));
-    ops.push(pdfLineOp(PDF_M, y, PDF_W - PDF_M, y));
+    if (banded) ops.push(pdfFillOp(PDF_M, y, w, PDF_ROW_H, C_BAND));
     let x = PDF_M;
     cols.forEach((c, i) => {
       const size = c.size || 7.8;
@@ -3526,6 +3891,9 @@
       ops.push(pdfTextOp(tx, y + 4.5, size, txt, false, C_INK));
       x += c.w;
     });
+    ops.push.apply(ops, pdfColRules(cols, y, PDF_ROW_H));
+    /* A rule under the row closes the cell it belongs to. */
+    ops.push(pdfLineOp(PDF_M, y, PDF_M + w, y, C_RULE));
     return ops;
   }
 
@@ -3549,11 +3917,12 @@
     blocks.push({ kind: 'ops', ops: facts.ops.concat(types.ops), h: PDF_BODY_TOP - types.endY });
 
     if (exportPrefs.include.deployments) {
-      blocks.push({ kind: 'heading', h: 30, text: 'Deployments (' + markings.deployments.length + ')' });
+      blocks.push({ kind: 'heading', h: 34, text: 'Deployments (' + markings.deployments.length + ')' });
       markings.deployments.forEach((d, i) => {
         normaliseDeployment(d);
         blocks.push({
-          kind: 'row', h: PDF_ROW_H * 2 + 2, cols: DEP_COLS, banded: i % 2 === 1,
+          kind: 'row', h: PDF_ROW_H + PDF_ROW_GAP, table: 'dep',
+          cols: DEP_COLS, banded: i % 2 === 1,
           cells: [
             String(i + 1), unitLabel(d.type), d.commander || '', String(d.troops || ''),
             d.vehicles || '', d.arms || '', d.equip || '',
@@ -3563,22 +3932,25 @@
         });
       });
       if (!markings.deployments.length) blocks.push({ kind: 'note', h: 16, text: 'No deployments in this plan.' });
+      else blocks.push({ kind: 'gap', h: 12 });
     }
 
     if (exportPrefs.include.zones) {
-      blocks.push({ kind: 'heading', h: 30, text: 'Zones (' + markings.zones.length + ')' });
+      blocks.push({ kind: 'heading', h: 34, text: 'Zones (' + markings.zones.length + ')' });
       markings.zones.forEach((z, i) => {
         const c = zoneCentre(z);
         blocks.push({
-          kind: 'row', h: PDF_ROW_H * 2 + 2, cols: ZONE_COLS, banded: i % 2 === 1,
+          kind: 'row', h: PDF_ROW_H + PDF_ROW_GAP, table: 'zone',
+          cols: ZONE_COLS, banded: i % 2 === 1,
           cells: [
-            String(i + 1), z.name, formatArea(z.areaM2), String((z.vertices || []).length),
+            String(i + 1), z.name, z.details || '', formatArea(z.areaM2), String((z.vertices || []).length),
             c ? c.lat.toFixed(5) + ', ' + c.lon.toFixed(5) : '',
             c ? safeMgrs(c.lat, c.lon, 4) : ''
           ]
         });
       });
       if (!markings.zones.length) blocks.push({ kind: 'note', h: 16, text: 'No zones in this plan.' });
+      else blocks.push({ kind: 'gap', h: 12 });
     }
 
     return blocks;
@@ -3755,28 +4127,53 @@
     const pages = [];
 
     /* Lay the blocks out top-down, starting a new page when the next one will
-       not fit above the footer. */
+       not fit above the footer. A table's header is drawn once, and again at
+       the top of any page the table continues onto. */
     const textPages = [];
     let cur = [];
     let curY = PDF_BODY_TOP;
+    /* Which table, if any, already has its header on the page being filled. */
+    let openTable = null;
+
     const flush = () => {
       if (cur.length) textPages.push(cur);
       cur = [];
       curY = PDF_BODY_TOP;
+      openTable = null;
     };
 
     blocks.forEach(b => {
+      /* A row may need a header band above it, so both are measured together -
+         that keeps a header from being stranded at the foot of a page. */
+      if (b.kind === 'row') {
+        const headH = (openTable === b.table) ? 0 : PDF_HEAD_H;
+        if (curY - (headH + b.h) < PDF_BOTTOM) flush();
+
+        let y = curY;
+        if (openTable !== b.table) {
+          cur.push.apply(cur, pdfTableHeaderOps(b.cols, y - PDF_HEAD_H));
+          openTable = b.table;
+          y -= PDF_HEAD_H;
+        }
+        cur.push.apply(cur, pdfTableRowOps(b.cols, b.cells, y - PDF_ROW_H, b.banded));
+        curY = y - PDF_ROW_H - PDF_ROW_GAP;
+        return;
+      }
+
+      /* A spacer is only a cursor advance. It must never trigger a flush, or a
+         trailing one would leave a blank page at the end of the document. */
+      if (b.kind === 'gap') { curY -= b.h; return; }
+
       if (curY - b.h < PDF_BOTTOM) flush();
       if (b.kind === 'ops') {
         cur.push.apply(cur, b.ops);
       } else if (b.kind === 'heading') {
+        /* A section title always starts a fresh table. */
+        openTable = null;
         cur.push(pdfTextOp(PDF_M, curY, 10, b.text, true, C_INK));
         cur.push(pdfLineOp(PDF_M, curY - 6, PDF_W - PDF_M, curY - 6, C_ACCENT));
       } else if (b.kind === 'note') {
         cur.push(pdfTextOp(PDF_M + 8, curY - 6, 8, b.text, false, C_MUTED));
-      } else if (b.kind === 'row') {
-        cur.push.apply(cur, pdfTableHeaderOps(b.cols, curY - PDF_ROW_H));
-        cur.push.apply(cur, pdfTableRowOps(b.cols, b.cells, curY - PDF_ROW_H * 2 - 2, b.banded));
       }
       curY -= b.h;
     });
