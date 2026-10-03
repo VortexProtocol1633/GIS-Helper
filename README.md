@@ -88,6 +88,11 @@ A session contains:
   that varies by provider), the export silently falls back to a **schematic plan** —
   a labelled coordinate grid with the same zones, pins and labels, minus the street
   imagery — and tells you which one you got. The on-screen map is never affected.
+- Tiles for the export are requested **six at a time and retried up to three times**,
+  because firing a few hundred at once just gets the server to throttle them and
+  leaves blank patches on the sheet. If any tile still cannot be fetched, the caption
+  and the status line both say how many, so a patchy base map is never mistaken for
+  blank terrain.
 
 #### Export options
 A collapsible **Export options** group sits in the Download & Upload card, and the same controls

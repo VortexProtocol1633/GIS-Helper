@@ -3077,12 +3077,34 @@
     };
   }
 
-  function loadTileImage(url) {
+  /* Tile loading is the only network-bound step in an export, so it gets a real
+     queue. Firing every tile at once - there can be well over 200 of them -
+     stacks them all behind the browser's handful of connections per host, the
+     tile server starts throttling, and the finished sheet comes out with blank
+     patches. Six in flight is what a well-behaved tile client uses anyway. */
+  const TILE_CONCURRENCY = 6;
+  const TILE_ATTEMPTS   = 3;
+  const TILE_ATTEMPT_MS = 7000;   // per attempt
+  const TILE_BUDGET_MS  = 25000;  // whole batch, retries included
+
+  /* How the last tile batch fared. The sheet caption reads this so a picture
+     with gaps admits to them instead of passing them off as blank terrain. */
+  let lastTileGaps = { missing: 0, total: 0 };
+
+  /* The user-facing version, for the status bar. Empty when the sheet is clean. */
+  function tileGapNote(gaps) {
+    if (!gaps || !gaps.missing) return '';
+    return gaps.missing + ' of ' + gaps.total +
+      ' map tiles could not be loaded, so the sheet has blank patches. ' +
+      'Try a steadier connection, or a larger map scale to need fewer tiles.';
+  }
+
+  function loadTileImage(url, timeoutMs) {
     return new Promise(resolve => {
       const img = new Image();
       let settled = false;
       const done = (v) => { if (!settled) { settled = true; resolve(v); } };
-      const timer = setTimeout(() => done(null), 7000);
+      const timer = setTimeout(() => done(null), timeoutMs || TILE_ATTEMPT_MS);
       /* Set before src: if the server sends no CORS header this fires onerror
          instead of quietly tainting the canvas. */
       img.crossOrigin = 'anonymous';
@@ -3092,7 +3114,48 @@
     });
   }
 
+  /* A retry that reuses the exact URL can just replay a response the browser
+     already holds. Every attempt after the first asks for a fresh copy; tile
+     servers ignore query parameters they do not know, so this is safe on all
+     four providers. */
+  function cacheBust(url, attempt) {
+    if (!attempt) return url;
+    return url + (url.indexOf('?') === -1 ? '?' : '&') + '_r=' + attempt;
+  }
+
+  /* Up to TILE_ATTEMPTS tries, giving up early once the batch budget is spent
+     so a single slow tile cannot stall the export. Returns the Image or null. */
+  async function fetchTileImage(url, deadline) {
+    for (let attempt = 0; attempt < TILE_ATTEMPTS; attempt++) {
+      const left = deadline - Date.now();
+      if (left <= 0) return null;
+      const img = await loadTileImage(cacheBust(url, attempt), Math.min(TILE_ATTEMPT_MS, left));
+      if (img) return img;
+    }
+    return null;
+  }
+
+  /* `worker` over `items` with at most `limit` in flight, results in input
+     order. Written out rather than reached for, so the export has no
+     dependencies beyond Leaflet. */
+  function mapLimit(items, limit, worker) {
+    return new Promise(resolve => {
+      const out = new Array(items.length);
+      let next = 0;
+      const runner = async () => {
+        while (next < items.length) {
+          const i = next++;
+          out[i] = await worker(items[i]);
+        }
+      };
+      const lanes = [];
+      for (let i = 0; i < Math.min(limit, items.length); i++) lanes.push(runner());
+      Promise.all(lanes).then(() => resolve(out));
+    });
+  }
+
   async function drawBaseTiles(ctx, proj) {
+    lastTileGaps = { missing: 0, total: 0 };
     const layer = baseLayers[exportLayerName()];
     const tpl = layer && layer._url;
     if (!tpl) return false;
@@ -3149,17 +3212,22 @@
     if (count > 220 || ow > 4000 || oh > 4000) return false;   // stay a well-behaved tile client
 
     const subs = layer.options.subdomains || 'abc';
-    const jobs = [];
+    const wanted = [];
     for (let x = x0; x <= x1; x++) {
       for (let y = y0; y <= y1; y++) {
         const sub = Array.isArray(subs) ? subs[Math.abs(x + y) % subs.length] : subs[0];
-        const url = L.Util.template(tpl, { s: sub, z, x, y, r: '' });
-        jobs.push(loadTileImage(url).then(img => ({ img, x, y })));
+        wanted.push({ x, y, url: L.Util.template(tpl, { s: sub, z, x, y, r: '' }) });
       }
     }
 
-    const tiles = await Promise.all(jobs);
+    /* Queued rather than fired flat out, and each tile retried before it is
+       written off - see TILE_CONCURRENCY above. */
+    const deadline = Date.now() + TILE_BUDGET_MS;
+    const tiles = await mapLimit(wanted, TILE_CONCURRENCY, t =>
+      fetchTileImage(t.url, deadline).then(img => ({ img, x: t.x, y: t.y })));
+
     const got = tiles.filter(t => t.img).length;
+    lastTileGaps = { missing: tiles.length - got, total: tiles.length };
     if (got < tiles.length * 0.6) return false;   // blocked or mostly dead
 
     /* Paint the page before any tile lands. A fresh canvas is fully
@@ -3502,7 +3570,12 @@
     drawNorthArrow(ctx, proj);
     drawAttribution(ctx, usedTiles);
 
-    return { canvas, usedTiles, rot, zoom, cropped, centerLat: mid.lat };
+    return {
+      canvas, usedTiles, rot, zoom, cropped,
+      centerLat: mid.lat,
+      tilesWanted: lastTileGaps.total,
+      tilesMissing: lastTileGaps.missing
+    };
   }
 
   /* ---- report tables ---- */
@@ -3619,6 +3692,13 @@
       : 'Map scale ' + scaleLabel(+exportPrefs.scale) + '.');
     if (res.cropped) {
       bits.push('The chosen scale is too fine for this plan, so the picture crops it \u2014 pick a larger scale or use Auto to frame everything.');
+    }
+    /* A blank patch in a finished PDF otherwise reads as blank terrain rather
+       than as a gap, so say so on the sheet itself. Kept short because this
+       caption is a single footer line on page 1 of the PDF. */
+    if (res.usedTiles && res.tilesMissing) {
+      bits.push('Note: ' + res.tilesMissing + ' of ' + res.tilesWanted +
+        ' base map tiles failed to load, leaving blank patches.');
     }
     bits.push('Numbered pins correspond to the deployments table.');
     return bits.join(' ');
@@ -3924,7 +4004,9 @@
       res.canvas.toBlob(blob => {
         if (!blob) { setStatus('Could not create the PNG file.', 'err'); return; }
         downloadBlob(blob, planFileName('png'));
-        setStatus('Plan exported as PNG' + (res.usedTiles ? '' : ' (schematic)') + '.', 'ok');
+        const gap = res.usedTiles ? tileGapNote(lastTileGaps) : '';
+        setStatus(gap || ('Plan exported as PNG' + (res.usedTiles ? '' : ' (schematic)') + '.'),
+          gap ? 'warn' : 'ok');
       }, 'image/png');
     } catch (e) {
       setStatus('Could not export the PNG: ' + e.message, 'err');
@@ -4570,11 +4652,16 @@
 
   async function downloadPlanPdf() {
     setStatus('Building PDF\u2026', 'ok');
+    /* Cleared up front: with the map left off, no canvas is built and a stale
+       tally from an earlier export would otherwise raise a false warning. */
+    lastTileGaps = { missing: 0, total: 0 };
     try {
       const blob = await buildPlanPdf();
       if (!blob) return;
       downloadBlob(blob, planFileName('pdf'));
-      setStatus('Plan downloaded as PDF.', 'ok');
+      /* Never let a patchy base map pass as a clean sheet. */
+      const gap = tileGapNote(lastTileGaps);
+      setStatus(gap || 'Plan downloaded as PDF.', gap ? 'warn' : 'ok');
     } catch (e) {
       setStatus('Could not build the PDF: ' + e.message, 'err');
     }
