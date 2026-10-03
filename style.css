@@ -2546,8 +2546,8 @@ kbd {
     align-items: flex-start;
     justify-content: space-between;
     gap: 10mm;
-    padding-bottom: 3mm;
-    margin-bottom: 3mm;
+    padding-bottom: 2mm;
+    margin-bottom: 2mm;
     border-bottom: 2px solid #0FBFAE;
   }
   .report-brand { display: flex; align-items: center; gap: 4mm; }
@@ -2561,17 +2561,62 @@ kbd {
   .report-facts dt { font-size: 8pt; color: #5B6B7A; text-transform: uppercase; letter-spacing: 0.4pt; }
   .report-facts dd { margin: 0; font-size: 9.5pt; font-weight: 600; color: #0B1622; font-variant-numeric: tabular-nums; }
 
-  .report-figure { margin: 0 0 4mm; break-inside: avoid; }
+  .report-figure { margin: 0 0 3mm; break-inside: avoid; text-align: center; }
+  /* The sheet is sized by HEIGHT, not width. A 1600x1000 plan stretched to the
+     full page width is ~229mm tall on its own, which alone overruns an A4
+     landscape page and pushes the tables onto a second sheet. Capping the
+     height keeps the figure, the caption and both tables on one page, and
+     max-width still guards a very tall export. Long plans add the is-dense
+     class from script.js, which trades more picture for table rows. */
   .report-figure img {
     display: block;
-    width: 100%;
+    margin: 0 auto;
+    width: auto;
     height: auto;
+    max-height: 68mm;
+    max-width: 100%;
     border: 1px solid #C6D2DD;
     border-radius: 2px;
   }
-  .report-figure figcaption { margin-top: 1.5mm; font-size: 8pt; color: #5B6B7A; }
+  .report-figure figcaption { margin-top: 1.5mm; font-size: 8pt; color: #5B6B7A; text-align: left; }
 
-  .report-block { margin-bottom: 4mm; break-inside: avoid; }
+  /* A long order of battle leaves the picture very little room, so the tables
+     tighten up rather than spilling onto a second sheet. Padding and type drop
+     a little; the columns stay on one line each so the table stays readable. */
+  .report-sheet.is-dense .report-figure img { max-height: 27mm; }
+  /* Compacting the tables frees a predictable amount of page, so the map can
+     be handed some of it back. These steps are measured against the A4
+     landscape text block and keep every one of these row counts on one page. */
+  .report-sheet.is-map-md .report-figure img { max-height: 40mm; }
+  .report-sheet.is-map-lg .report-figure img { max-height: 52mm; }
+  .report-sheet.is-dense .report-block { margin-bottom: 2mm; }
+  .report-sheet.is-dense .report-block h2 { font-size: 9.5pt; margin-bottom: 1mm; }
+  .report-sheet.is-dense .report-table { font-size: 7.5pt; }
+  .report-sheet.is-dense .report-table th { padding: 0.9mm 1.1mm; font-size: 6.8pt; }
+  .report-sheet.is-dense .report-table td { padding: 0.6mm 1.1mm; }
+  .report-sheet.is-dense .report-table .mono { font-size: 7pt; }
+  .report-sheet.is-dense .report-head { padding-bottom: 1.2mm; margin-bottom: 1.2mm; gap: 6mm; }
+  .report-sheet.is-dense .report-brand h1 { font-size: 12.5pt; }
+  .report-sheet.is-dense .report-brand p { font-size: 7.5pt; }
+  .report-sheet.is-dense .report-logo svg { width: 7mm; height: 9mm; }
+  .report-sheet.is-dense .report-facts dt { font-size: 7pt; }
+  .report-sheet.is-dense .report-facts dd { font-size: 8.5pt; }
+  .report-sheet.is-dense .report-figure { margin-bottom: 2mm; }
+  .report-sheet.is-dense .report-figure figcaption { margin-top: 1mm; font-size: 7.2pt; }
+  .report-sheet.is-dense .report-foot { margin-top: 1.5mm; padding-top: 1.5mm; font-size: 6.8pt; }
+
+  /* A very long order of battle genuinely cannot share one page with a usable
+     map. Rather than shrink the picture into a stamp, give the type its size
+     back and let the sheet run onto a second page - readable beats compact. */
+  .report-sheet.is-long .report-table { font-size: 8.5pt; }
+  .report-sheet.is-long .report-table th { padding: 1.3mm 1.5mm; font-size: 7.5pt; }
+  .report-sheet.is-long .report-table td { padding: 1.1mm 1.5mm; }
+  .report-sheet.is-long .report-table .mono { font-size: 8pt; }
+  .report-sheet.is-long .report-block h2 { font-size: 10.5pt; }
+  .report-sheet.is-long .report-brand h1 { font-size: 15pt; }
+  .report-sheet.is-long .report-figure img { max-height: 85mm; }
+
+  .report-block { margin-bottom: 3mm; break-inside: avoid; }
   .report-block h2 {
     margin: 0 0 1.5mm;
     font-size: 10.5pt;
@@ -2707,6 +2752,58 @@ kbd {
   line-height: 1.55;
   color: var(--muted);
 }
+
+/* ---- Save Op Data dialog ---- */
+.saveop-modal { width: min(600px, 100%); }
+
+.saveop-summary {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 14px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 245, 212, 0.09);
+  border: 1px solid rgba(0, 245, 212, 0.22);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.saveop-summary b { color: var(--text); font-weight: 600; }
+
+.saveop-format {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* The chosen format reads as pressed without recolouring it, so the accent
+   stays with the action rather than the selection. */
+.import-option.is-selected {
+  border-color: var(--accent);
+  background: rgba(0, 245, 212, 0.07);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.saveop-include {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+.saveop-include-head {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.8pt;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* The ticks are a PDF-only concern, so the whole group hides for JSON. */
+.saveop-include.is-hidden { display: none; }
 
 /* Fallback for browsers without backdrop-filter support */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

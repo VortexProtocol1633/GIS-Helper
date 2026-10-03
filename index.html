@@ -326,6 +326,15 @@
       <h2><span class="step">6</span> Save &amp; Share</h2>
 
       <div class="data-actions">
+        <button id="save-op-btn" class="btn btn-primary">&#128190; Save Op Data</button>
+      </div>
+
+      <p class="note">One dialog for the whole plan: write it out as a <b>JSON</b> file for a
+        teammate, or print it to a <b>PDF</b> map sheet. You choose what goes in.</p>
+
+      <div class="data-divider"></div>
+
+      <div class="data-actions">
         <button id="data-save-btn" class="btn btn-primary">&#128190; Save to browser</button>
         <button id="data-load-btn" class="btn btn-ghost">&#128194; Load from browser</button>
       </div>
@@ -1234,6 +1243,10 @@
 
           <div class="help-grid">
             <div class="help-tile">
+              <h4>&#128190; Save Op Data</h4>
+              <p>One dialog for taking the plan away. Pick <b>JSON file</b> to download the complete session for a teammate, or <b>PDF map sheet</b> to open the print dialog on a single landscape sheet. For the PDF you tick what goes on it &mdash; map, scale bar, north arrow, deployments and zones. Unticking everything is refused rather than printing a blank page.</p>
+            </div>
+            <div class="help-tile">
               <h4>&#128190; Save to browser</h4>
               <p>Stores the map indicator, all deployments, zones and your custom unit types in this browser's localStorage. They reappear automatically when you return.</p>
             </div>
@@ -1271,7 +1284,7 @@
           <div class="help-grid">
             <div class="help-tile">
               <h4>&#128424; Print report</h4>
-              <p>Opens your browser&rsquo;s print dialog with a one-page plan sheet: the map, then tables of every deployment and zone. Choose <b>Save as PDF</b> as the destination to get a PDF instead.</p>
+              <p>Opens your browser&rsquo;s print dialog with a one-page plan sheet: the map, then tables of every deployment and zone. Choose <b>Save as PDF</b> as the destination to get a PDF instead. This is the shortcut to the <b>Save Op Data</b> dialog&rsquo;s PDF option, and it honours the same include ticks.</p>
             </div>
             <div class="help-tile">
               <h4>&#128444; Export PNG</h4>
@@ -1294,6 +1307,11 @@
             <li><b>Rotate to fit</b> — off means north-up, which is also the default. Turn it on and the plan is spun onto its longest axis, so a long or diagonal plan fills the frame instead of leaving empty corners. The north arrow turns with it and the caption states the applied angle. A plan that already runs along an axis is left alone.</li>
             <li><b>Plan title</b> and <b>Plan date</b> — optional. They print in the report header, so you can label a sheet with an exercise name or an operation date. They are not burned into the PNG.</li>
           </ul>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p>Plans of up to about sixteen rows of data stay on a single sheet: the tables tighten up and the map gives up the space they need. Beyond that the sheet runs onto a second page rather than shrinking the map until it is unreadable.</p>
+          </div>
         </section>
 
       </div>
@@ -1480,25 +1498,25 @@
           </svg>
         </span>
         <div>
-          <h1 id="report-title">GIS Helper \u2014 Tactical Plan</h1>
+          <h1 id="report-title">GIS Helper — Tactical Plan</h1>
           <p id="report-sub">Generated</p>
           <p id="report-scope"></p>
         </div>
       </div>
       <dl class="report-facts">
-        <div><dt>Map indicator</dt><dd id="report-place">\u2014</dd></div>
-        <div><dt>Lat / Lon (DD)</dt><dd id="report-latlon">\u2014</dd></div>
-        <div><dt>MGRS 8-digit</dt><dd id="report-mgrs">\u2014</dd></div>
-        <div><dt>ArcGIS XY (UTM)</dt><dd id="report-utm">\u2014</dd></div>
+        <div><dt>Map indicator</dt><dd id="report-place">—</dd></div>
+        <div><dt>Lat / Lon (DD)</dt><dd id="report-latlon">—</dd></div>
+        <div><dt>MGRS 8-digit</dt><dd id="report-mgrs">—</dd></div>
+        <div><dt>ArcGIS XY (UTM)</dt><dd id="report-utm">—</dd></div>
       </dl>
     </header>
 
-    <figure class="report-figure">
+    <figure class="report-figure" id="report-figure">
       <img id="report-image" alt="Map showing the map indicator, marked deployments and drawn zones" />
       <figcaption id="report-caption"></figcaption>
     </figure>
 
-    <section class="report-block">
+    <section class="report-block" id="report-deployments-block">
       <h2>Deployments <span id="report-dep-count">(0)</span></h2>
       <table class="report-table">
         <thead>
@@ -1512,7 +1530,7 @@
       </table>
     </section>
 
-    <section class="report-block">
+    <section class="report-block" id="report-zones-block">
       <h2>Zones <span id="report-zone-count">(0)</span></h2>
       <table class="report-table">
         <thead>
@@ -1528,10 +1546,91 @@
     </section>
 
     <footer class="report-foot">
-      <span>Produced with GIS Helper \u2014 no account, no server. The data never left the author&rsquo;s browser.</span>
+      <span>Produced with GIS Helper — no account, no server. The data never left the author&rsquo;s browser.</span>
     </footer>
   </div>
 </section>
+
+<!-- ===================== SAVE OP DATA ===================== -->
+<!-- One dialog for the whole plan: pick JSON or PDF, tick what it should contain. -->
+<div class="modal-overlay" id="saveop-modal" role="dialog" aria-modal="true" aria-labelledby="saveop-title">
+  <div class="modal saveop-modal" role="document">
+    <header class="modal-header">
+      <div class="modal-title">
+        <div class="modal-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </div>
+        <div>
+          <h2 id="saveop-title">Save Op Data</h2>
+          <p>Write the whole plan out as a JSON file, or print it as a PDF map sheet.</p>
+        </div>
+      </div>
+      <button class="modal-close" id="saveop-close" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      <div class="saveop-summary" id="saveop-summary"></div>
+
+      <div class="saveop-format" role="radiogroup" aria-label="Output format">
+        <button class="import-option is-selected" id="saveop-fmt-json" role="radio" aria-checked="true">
+          <span class="import-option-title">JSON file</span>
+          <span class="import-option-desc">Downloads <code>gis-helper-data-YYYY-MM-DD.json</code> with every deployment, zone, the map indicator and your custom unit types. Re-importable by anyone.</span>
+        </button>
+        <button class="import-option" id="saveop-fmt-pdf" role="radio" aria-checked="false">
+          <span class="import-option-title">PDF map sheet</span>
+          <span class="import-option-desc">Opens the print dialog on a single landscape sheet with the map, scale bar, north arrow and data tables. Choose &ldquo;Save as PDF&rdquo; as the destination.</span>
+        </button>
+      </div>
+
+      <div class="saveop-include" id="saveop-include">
+        <div class="saveop-include-head">Include in the PDF</div>
+
+        <label class="check-row" for="saveop-map">
+          <input type="checkbox" id="saveop-map" checked />
+          <span>Map <em>&mdash; the rendered plan picture with all markings</em></span>
+        </label>
+
+        <label class="check-row" for="saveop-scale">
+          <input type="checkbox" id="saveop-scale" checked />
+          <span>Scale bar <em>&mdash; follows the Scale bar option above</em></span>
+        </label>
+
+        <label class="check-row" for="saveop-north">
+          <input type="checkbox" id="saveop-north" checked />
+          <span>North arrow <em>&mdash; rotates with the plan when Rotate to fit is on</em></span>
+        </label>
+
+        <label class="check-row" for="saveop-deployments">
+          <input type="checkbox" id="saveop-deployments" checked />
+          <span>Deployments <em>&mdash; the full table of units, strengths and grid references</em></span>
+        </label>
+
+        <label class="check-row" for="saveop-zones">
+          <input type="checkbox" id="saveop-zones" checked />
+          <span>Zones <em>&mdash; name, area, vertex count and grid reference</em></span>
+        </label>
+
+        <p class="note">A JSON save always carries everything, regardless of these ticks &mdash;
+          the file is meant to be re-imported losslessly.</p>
+      </div>
+    </div>
+
+    <footer class="modal-footer">
+      <span class="modal-footer-note">Saved locally in your browser. Nothing is uploaded.</span>
+      <button class="btn btn-ghost modal-cta" id="saveop-cancel-btn">Cancel</button>
+      <button class="btn btn-primary modal-cta" id="saveop-go-btn">Save as JSON</button>
+    </footer>
+  </div>
+</div>
 
 <div class="modal-overlay" id="import-modal" role="dialog" aria-modal="true" aria-labelledby="import-title">
   <div class="modal import-modal" role="document">

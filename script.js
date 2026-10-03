@@ -2386,13 +2386,16 @@
 
   /* Export preferences are UI settings, not plan data, so they are kept out of
      the shared session JSON on purpose and stored under their own key. */
-  const EXPORT_PREFS_KEY = 'gis-helper-export-prefs-v1';
+  const EXPORT_PREFS_KEY = 'gis-helper-export-prefs-v2';
   const exportPrefs = {
     frame: 'all',        // all | view | deployments | zones | indicator
     rotate: false,       // rotate the plan onto its longest axis
     scaleUnits: 'both',  // both | metric | imperial | none
     title: '',
-    date: ''
+    date: '',
+    /* What the Save Op Data dialog puts on the printed sheet. The JSON export
+       ignores this - a file is meant to be re-imported losslessly. */
+    include: { map: true, scale: true, north: true, deployments: true, zones: true }
   };
 
   function loadExportPrefs() {
@@ -2405,6 +2408,11 @@
       exportPrefs.rotate = !!d.rotate;
       exportPrefs.title = String(d.title || '').slice(0, 60);
       exportPrefs.date = /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') ? d.date : '';
+      if (d.include && typeof d.include === 'object') {
+        ['map', 'scale', 'north', 'deployments', 'zones'].forEach(k => {
+          if (typeof d.include[k] === 'boolean') exportPrefs.include[k] = d.include[k];
+        });
+      }
     } catch (e) {}
   }
 
@@ -2855,7 +2863,7 @@
 
   function drawScaleBar(ctx, proj, centerLat) {
     const units = exportPrefs.scaleUnits;
-    if (units === 'none') return;
+    if (units === 'none' || !exportPrefs.include.scale) return;
     const mpp = proj.metresPerPixel(centerLat);
     if (!(mpp > 0)) return;
 
@@ -2897,6 +2905,7 @@
   /* The arrow must follow the rotation, so it always points at true north
      within the (possibly rotated) plan. */
   function drawNorthArrow(ctx, proj) {
+    if (!exportPrefs.include.north) return;
     const cx = EXPORT_W - 46, cy = 44;
     const rot = proj.rot || 0;
     const dx = Math.sin(rot), dy = -Math.cos(rot);   // north, after rotation
@@ -2967,6 +2976,26 @@
   /* ---- report tables ---- */
   function buildReportTables() {
     $('report-title').textContent = exportPrefs.title || 'GIS Helper \u2014 Tactical Plan';
+
+    /* Honour the Save Op Data ticks. The map is hidden with the whole figure
+       (caption included) so it cannot leave a stray gap, and the two data
+       tables drop out entirely rather than printing as empty headings. */
+    $('report-figure').style.display = exportPrefs.include.map ? '' : 'none';
+    $('report-deployments-block').style.display = exportPrefs.include.deployments ? '' : 'none';
+    $('report-zones-block').style.display = exportPrefs.include.zones ? '' : 'none';
+
+    /* One landscape page is the promise the copy makes. Past 4 rows the tables are
+       compacted, and the room that frees is handed back to the map in measured
+       steps so the picture stays legible instead of collapsing to a stamp.
+       Past ~16 rows the tables cannot share a page with a readable map at all,
+       so we stop compacting and let the sheet run onto a second page. */
+    const rows = (exportPrefs.include.deployments ? markings.deployments.length : 0) +
+                 (exportPrefs.include.zones ? markings.zones.length : 0);
+    const sheet = document.querySelector('.report-sheet');
+    sheet.classList.toggle('is-dense', rows > 4 && rows <= 16);
+    sheet.classList.toggle('is-long', rows > 16);
+    sheet.classList.toggle('is-map-lg', rows >= 5 && rows <= 8);
+    sheet.classList.toggle('is-map-md', rows >= 9 && rows <= 13);
 
     const bits = [];
     if (exportPrefs.date) bits.push('Plan date: ' + exportPrefs.date);
@@ -3039,7 +3068,8 @@
       ? used.map(t => '<span class="report-type"><span class="swatch" style="background:' +
           esc(t.color) + '"></span>' + esc(t.label) + '</span>').join('')
       : '<span class="report-empty">No unit types used.</span>';
-    $('report-types-block').style.display = used.length ? '' : 'none';
+    /* Unit types are derived from the deployments, so this follows the same tick. */
+    $('report-types-block').style.display = (used.length && exportPrefs.include.deployments) ? '' : 'none';
   }
 
   function exportCaption(res) {
@@ -3068,6 +3098,95 @@
       setStatus('Could not build the report: ' + e.message, 'err');
     }
   }
+
+  /* ============================================================
+     25b. SAVE OP DATA DIALOG
+     ============================================================
+     One place to take the plan away: a JSON file for a teammate, or a printed
+     PDF sheet. The include ticks feed straight into exportPrefs, so the two
+     legacy buttons and this dialog can never disagree about what a sheet holds. */
+  const saveOpModal = document.getElementById('saveop-modal');
+  let saveOpFormat  = 'json';
+
+  const INCLUDE_FIELDS = [
+    ['map', 'saveop-map'],
+    ['scale', 'saveop-scale'],
+    ['north', 'saveop-north'],
+    ['deployments', 'saveop-deployments'],
+    ['zones', 'saveop-zones']
+  ];
+
+  function applyIncludeToInputs() {
+    INCLUDE_FIELDS.forEach(([key, id]) => { $(id).checked = exportPrefs.include[key]; });
+  }
+
+  function readIncludeFromInputs() {
+    INCLUDE_FIELDS.forEach(([key, id]) => { exportPrefs.include[key] = $(id).checked; });
+    saveExportPrefs();
+  }
+
+  function setSaveOpFormat(fmt) {
+    saveOpFormat = fmt;
+    const isJson = fmt === 'json';
+    $('saveop-fmt-json').classList.toggle('is-selected', isJson);
+    $('saveop-fmt-json').setAttribute('aria-checked', String(isJson));
+    $('saveop-fmt-pdf').classList.toggle('is-selected', !isJson);
+    $('saveop-fmt-pdf').setAttribute('aria-checked', String(!isJson));
+    /* The ticks only shape the printed sheet; a JSON save is always complete. */
+    $('saveop-include').classList.toggle('is-hidden', isJson);
+    $('saveop-go-btn').textContent = isJson ? 'Save as JSON' : 'Print / Save as PDF';
+  }
+
+  function refreshSaveOpSummary() {
+    const nd = markings.deployments.length;
+    const nz = markings.zones.length;
+    const hasInd = validIndicator(savedIndicator);
+    const bits = [];
+    if (hasInd) bits.push('<b>1</b> map indicator');
+    if (nd) bits.push('<b>' + nd + '</b> deployment' + (nd === 1 ? '' : 's'));
+    if (nz) bits.push('<b>' + nz + '</b> zone' + (nz === 1 ? '' : 's'));
+    $('saveop-summary').innerHTML = bits.length
+      ? 'This plan holds ' + bits.join(', ') + '.'
+      : 'Nothing has been placed yet \u2014 search a location, place deployments or draw a zone first.';
+  }
+
+  function openSaveOpModal() {
+    applyIncludeToInputs();
+    setSaveOpFormat(saveOpFormat);
+    refreshSaveOpSummary();
+    openModal(saveOpModal);
+  }
+
+  async function runSaveOp() {
+    if (saveOpFormat === 'json') {
+      exportMarkingsFile();
+      return;
+    }
+    readIncludeFromInputs();
+    /* A sheet with nothing ticked would come out blank, which reads as a bug
+       rather than a choice - say so instead of opening an empty print dialog. */
+    const picked = INCLUDE_FIELDS.some(([key]) => exportPrefs.include[key]);
+    if (!picked) {
+      setStatus('Tick at least one item to include on the sheet.', 'warn');
+      openSaveOpModal();
+      return;
+    }
+    await openReport();
+  }
+
+  $('save-op-btn').addEventListener('click', openSaveOpModal);
+  $('saveop-close').addEventListener('click', () => closeModal(saveOpModal));
+  $('saveop-cancel-btn').addEventListener('click', () => closeModal(saveOpModal));
+  $('saveop-modal').addEventListener('click', (e) => {
+    if (e.target === saveOpModal) closeModal(saveOpModal);
+  });
+  $('saveop-fmt-json').addEventListener('click', () => setSaveOpFormat('json'));
+  $('saveop-fmt-pdf').addEventListener('click', () => setSaveOpFormat('pdf'));
+  INCLUDE_FIELDS.forEach(([, id]) => $(id).addEventListener('change', readIncludeFromInputs));
+  $('saveop-go-btn').addEventListener('click', () => {
+    closeModal(saveOpModal);
+    runSaveOp();
+  });
 
   async function downloadPlanPng() {
     setStatus('Rendering PNG\u2026', 'ok');
