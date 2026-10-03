@@ -2805,6 +2805,84 @@ kbd {
 /* The ticks are a PDF-only concern, so the whole group hides for JSON. */
 .saveop-include.is-hidden { display: none; }
 
+/* ---- Download dialog: map appearance ---- */
+.saveop-opts {
+  position: relative;
+  z-index: 1;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.saveop-opts.is-hidden { display: none; }
+
+.saveop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.saveop-grid .lbl { display: block; margin-bottom: 5px; }
+.saveop-grid .input { width: 100%; }
+.saveop-grid-single { grid-template-columns: 1fr; }
+
+/* Table ticks mean nothing for a plain picture. */
+.check-row.is-hidden { display: none; }
+
+.fmt-tag {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 11px;
+  margin-left: 4px;
+}
+
+/* ---- Guide: live screenshots of the real interface ---- */
+.shot {
+  margin: 4px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  box-shadow: 0 22px 44px -26px rgba(0, 0, 0, 0.9);
+  background: var(--glass-strong);
+}
+.shot figcaption {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.shot figcaption b { color: var(--text-2); font-weight: 600; }
+.shot figcaption em { font-style: normal; color: var(--accent); }
+
+.guide-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 2px 0 18px;
+}
+.guide-step {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--muted);
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 11px;
+}
+
+@media (max-width: 620px) {
+  .saveop-grid { grid-template-columns: 1fr; }
+}
+
 /* Fallback for browsers without backdrop-filter support */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .card, .topbar, .input, .btn-ghost, .layer-menu, .layer-toggle, .map-hud,

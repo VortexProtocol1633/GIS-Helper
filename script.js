@@ -2376,6 +2376,12 @@
   const EXPORT_W = 1600;
   const EXPORT_H = 1000;
   const EXPORT_MARGIN = 56;
+  /* The A4 landscape page the PDF sheet is laid out on. Declared here because
+     a fixed map scale is only meaningful against a physical sheet, and the
+     export maths needs it before the PDF section runs. */
+  const PDF_W = 842;
+  const PDF_H = 595;
+  const PDF_M = 30;
   const FONT = 'Poppins, "Segoe UI", system-ui, -apple-system, Arial, sans-serif';
   const EXPORT_ACCENT = '#00C8B4';
   const M_TO_FT = 3.280839895;
@@ -2387,13 +2393,22 @@
   /* Export preferences are UI settings, not plan data, so they are kept out of
      the shared session JSON on purpose and stored under their own key. */
   const EXPORT_PREFS_KEY = 'gis-helper-export-prefs-v2';
+
+  /* Map scales a sheet is normally drawn at. 'auto' frames whatever the plan
+     needs; a fixed fraction trades the whole plan for a known scale. */
+  const SCALE_CHOICES = [
+    'auto', '5000', '10000', '25000', '50000', '100000',
+    '250000', '500000', '1000000', '2000000', '5000000', '10000000'
+  ];
   const exportPrefs = {
-    frame: 'all',        // all | view | deployments | zones | indicator
-    rotate: false,       // rotate the plan onto its longest axis
-    scaleUnits: 'both',  // both | metric | imperial | none
+    frame: 'all',           // all | view | deployments | zones | indicator
+    mapType: 'screen',      // screen | standard | satellite | terrain | humanitarian | dark
+    orientation: 'north',   // north (north up) | fit (rotate onto the plan's long axis)
+    scale: 'auto',          // auto (frame the plan) | a representative fraction, e.g. '25000'
+    scaleUnits: 'both',     // both | metric | imperial | none
     title: '',
     date: '',
-    /* What the Save Op Data dialog puts on the printed sheet. The JSON export
+    /* What the Download dialog puts on the sheet or picture. The JSON export
        ignores this - a file is meant to be re-imported losslessly. */
     include: { map: true, scale: true, north: true, deployments: true, zones: true }
   };
@@ -2405,7 +2420,11 @@
       const d = JSON.parse(raw) || {};
       if (['all', 'view', 'deployments', 'zones', 'indicator'].indexOf(d.frame) !== -1) exportPrefs.frame = d.frame;
       if (['both', 'metric', 'imperial', 'none'].indexOf(d.scaleUnits) !== -1) exportPrefs.scaleUnits = d.scaleUnits;
-      exportPrefs.rotate = !!d.rotate;
+      if (['screen', 'standard', 'satellite', 'terrain', 'humanitarian', 'dark'].indexOf(d.mapType) !== -1) exportPrefs.mapType = d.mapType;
+      if (SCALE_CHOICES.indexOf(String(d.scale)) !== -1) exportPrefs.scale = String(d.scale);
+      if (['north', 'fit'].indexOf(d.orientation) !== -1) exportPrefs.orientation = d.orientation;
+      /* Older browsers only stored a "rotate to fit" flag. */
+      if (d.orientation === undefined && typeof d.rotate === 'boolean') exportPrefs.orientation = d.rotate ? 'fit' : 'north';
       exportPrefs.title = String(d.title || '').slice(0, 60);
       exportPrefs.date = /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') ? d.date : '';
       if (d.include && typeof d.include === 'object') {
@@ -2418,6 +2437,54 @@
 
   function saveExportPrefs() {
     try { localStorage.setItem(EXPORT_PREFS_KEY, JSON.stringify(exportPrefs)); } catch (e) {}
+  }
+
+  /* ---- one setting, many controls ----
+     The same option appears in the sidebar Export options and again in the
+     Download dialog. Every control carrying [data-pref] reads and writes the
+     one exportPrefs value, so the two places cannot drift apart. */
+  function syncPrefControls() {
+    document.querySelectorAll('[data-pref]').forEach(el => {
+      const v = exportPrefs[el.dataset.pref];
+      if (v === undefined) return;
+      if (el.type === 'checkbox') el.checked = !!v;
+      else if (el.value !== String(v)) el.value = v;
+    });
+  }
+
+  function setPref(key, value) {
+    if (exportPrefs[key] === value) return;
+    exportPrefs[key] = value;
+    saveExportPrefs();
+    syncPrefControls();
+  }
+
+  function initPrefControls() {
+    document.querySelectorAll('[data-pref]').forEach(el => {
+      const key = el.dataset.pref;
+      const commit = () => setPref(key, el.type === 'checkbox' ? el.checked : el.value);
+      el.addEventListener('change', commit);
+      /* Free-text fields need every keystroke, but only change once on blur. */
+      if (el.tagName === 'INPUT' && el.type === 'text') el.addEventListener('input', commit);
+    });
+    syncPrefControls();
+  }
+
+  /* Which base map the export should draw. "screen" tracks whatever the live
+     map is showing, so the download matches the view unless told otherwise. */
+  function exportLayerName() {
+    const m = exportPrefs.mapType;
+    return (m === 'screen' || !baseLayers[m]) ? currentLayerName : m;
+  }
+
+  function layerLabel(name) {
+    return {
+      standard: 'Standard (OSM)',
+      satellite: 'Satellite',
+      terrain: 'Terrain',
+      humanitarian: 'Humanitarian',
+      dark: 'Dark (CARTO)'
+    }[name] || name;
   }
 
   function esc(s) {
@@ -2535,7 +2602,7 @@
      lon/lat plane. The projector turns this into a canvas rotation of the same
      sign, so a value of 0 means north-up. */
   function fitAngle(pts) {
-    if (!exportPrefs.rotate || pts.length < 2) return 0;
+    if (exportPrefs.orientation !== 'fit' || pts.length < 2) return 0;
     const lat0 = pts.reduce((t, p) => t + p.lat, 0) / pts.length;
     const k = Math.cos(lat0 * Math.PI / 180);
     const xs = pts.map(p => p.lon * k);
@@ -2574,16 +2641,46 @@
     return { minX, maxX, minY, maxY, w: maxX - minX, h: maxY - minY, c };
   }
 
-  /* Largest zoom at which the rotated plan still fits inside the margin. */
+  /* Largest zoom at which the rotated plan still fits inside the margin.
+     With a fixed scale the zoom is dictated by that scale instead, and the
+     picture simply shows whatever falls inside the sheet. */
   function pickExportZoom(pts, rot) {
-    const layerMax = (baseLayers[currentLayerName] && baseLayers[currentLayerName].options.maxZoom) || 18;
+    const exportLayer = baseLayers[exportLayerName()];
+    const layerMax = Math.min((exportLayer && exportLayer.options.maxZoom) || 18, 18);
+    if (exportPrefs.scale !== 'auto') {
+      const z = Math.round(scaleZoom(centreOf(pts).lat, +exportPrefs.scale));
+      return Math.max(1, Math.min(layerMax, z));
+    }
     const availW = EXPORT_W - 2 * EXPORT_MARGIN;
     const availH = EXPORT_H - 2 * EXPORT_MARGIN;
-    for (let z = Math.min(layerMax, 18); z >= 1; z--) {
+    for (let z = layerMax; z >= 1; z--) {
       const b = rotatedFrame(pts, z, rot);
       if (b.w <= availW && b.h <= availH) return z;
     }
     return 1;
+  }
+
+  /* ---- map scale ----
+     A representative fraction is only meaningful against a physical sheet, so
+     the sheet geometry is the reference: the A4 landscape page the PDF is laid
+     out on. 1:X means 1 cm on that sheet covers X/100 metres on the ground. */
+  const SHEET_W_CM = (PDF_W - 2 * PDF_M) / 72 * 2.54;
+
+  function scaleZoom(lat, denom) {
+    const metresAcrossSheet = SHEET_W_CM * (denom / 100);
+    const mpp = metresAcrossSheet / EXPORT_W;
+    return Math.log2(156543.03392804097 * Math.cos(lat * Math.PI / 180) / mpp);
+  }
+
+  /* The scale the picture actually came out at, for the caption and the note
+     printed on the sheet. */
+  function effectiveScale(zoom, lat) {
+    const mpp = 156543.03392804097 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+    return Math.round((mpp * EXPORT_W) / SHEET_W_CM * 100);
+  }
+
+  function scaleLabel(denom) {
+    return '1:' + String(Math.round(denom)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   }
 
   /* Uses exactly the same rotation matrix as ctx.rotate(), so tiles blitted with
@@ -2643,7 +2740,7 @@
   }
 
   async function drawBaseTiles(ctx, proj, pts) {
-    const layer = baseLayers[currentLayerName];
+    const layer = baseLayers[exportLayerName()];
     const tpl = layer && layer._url;
     if (!tpl) return false;
 
@@ -2862,44 +2959,60 @@
   }
 
   function drawScaleBar(ctx, proj, centerLat) {
+    if (!exportPrefs.include.scale) return;
     const units = exportPrefs.scaleUnits;
-    if (units === 'none' || !exportPrefs.include.scale) return;
     const mpp = proj.metresPerPixel(centerLat);
-    if (!(mpp > 0)) return;
-
-    const bars = [];
-    if (units === 'metric' || units === 'both') {
-      bars.push({ m: pickScaleValue(NICE_METRES, mpp), imperial: false });
-    }
-    if (units === 'imperial' || units === 'both') {
-      bars.push({ m: pickScaleValue(NICE_FEET, mpp * M_TO_FT) / M_TO_FT, imperial: true });
-    }
-
     let y = EXPORT_H - 30;
-    for (let i = bars.length - 1; i >= 0; i--) {
-      const bar = bars[i];
-      const px = bar.m / mpp;
-      const x = 26;
 
-      ctx.lineCap = 'butt';
-      ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 5;
-      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + px, y); ctx.stroke();
-      ctx.strokeStyle = '#0B1118'; ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6);
-      ctx.moveTo(x + px, y - 6); ctx.lineTo(x + px, y + 6);
-      ctx.stroke();
+    if (units !== 'none' && mpp > 0) {
+      const bars = [];
+      if (units === 'metric' || units === 'both') {
+        bars.push({ m: pickScaleValue(NICE_METRES, mpp), imperial: false });
+      }
+      if (units === 'imperial' || units === 'both') {
+        bars.push({ m: pickScaleValue(NICE_FEET, mpp * M_TO_FT) / M_TO_FT, imperial: true });
+      }
 
-      const label = fmtDistance(bar.m, bar.imperial);
-      ctx.font = '600 13px ' + FONT;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3.5;
-      ctx.strokeText(label, x + px / 2, y - 8);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillText(label, x + px / 2, y - 8);
+      for (let i = bars.length - 1; i >= 0; i--) {
+        const bar = bars[i];
+        const px = bar.m / mpp;
+        const x = 26;
 
-      y -= 30;
+        ctx.lineCap = 'butt';
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + px, y); ctx.stroke();
+        ctx.strokeStyle = '#0B1118'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6);
+        ctx.moveTo(x + px, y - 6); ctx.lineTo(x + px, y + 6);
+        ctx.stroke();
+
+        const label = fmtDistance(bar.m, bar.imperial);
+        ctx.font = '600 13px ' + FONT;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3.5;
+        ctx.strokeText(label, x + px / 2, y - 8);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(label, x + px / 2, y - 8);
+
+        y -= 30;
+      }
     }
+
+    /* The representative fraction sits above the bars, so the sheet works as a
+       map rather than only as a picture - and it is still printed when the bar
+       itself is hidden, because a sheet at 1:25 000 is still at 1:25 000. */
+    const fixed = exportPrefs.scale !== 'auto';
+    const denom = fixed ? +exportPrefs.scale : effectiveScale(proj.zoom, centerLat);
+    const text = (fixed ? 'Map scale ' : 'Map scale approx. ') + scaleLabel(denom);
+
+    ctx.font = '600 12px ' + FONT;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)'; ctx.lineWidth = 3.5;
+    ctx.strokeText(text, 26, y - 22);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(text, 26, y - 22);
   }
 
   /* The arrow must follow the rotation, so it always points at true north
@@ -2930,7 +3043,7 @@
 
   /* ODbL / CARTO / OpenTopoMap all require visible attribution. */
   function drawAttribution(ctx, usedTiles) {
-    const layer = baseLayers[currentLayerName];
+    const layer = baseLayers[exportLayerName()];
     const text = usedTiles
       ? plainText(layer && layer.options.attribution)
       : 'Schematic plan \u2014 not to scale. Positions are WGS 84.';
@@ -2950,8 +3063,17 @@
     if (!pts) return null;
 
     const rot = fitAngle(pts);
-    const proj = makeProjector(pts, pickExportZoom(pts, rot), rot);
     const mid = centreOf(pts);
+    const zoom = pickExportZoom(pts, rot);
+    const proj = makeProjector(pts, zoom, rot);
+
+    /* A fixed scale shows whatever fits on the sheet, so the plan can end up
+       larger than the picture. Say so rather than quietly cropping it. */
+    let cropped = false;
+    if (exportPrefs.scale !== 'auto') {
+      const box = rotatedFrame(pts, zoom, rot);
+      cropped = box.w > EXPORT_W - 2 * EXPORT_MARGIN || box.h > EXPORT_H - 2 * EXPORT_MARGIN;
+    }
 
     const canvas = document.createElement('canvas');
     canvas.width = EXPORT_W;
@@ -2970,7 +3092,7 @@
     drawNorthArrow(ctx, proj);
     drawAttribution(ctx, usedTiles);
 
-    return { canvas, usedTiles, rot };
+    return { canvas, usedTiles, rot, zoom, cropped, centerLat: mid.lat };
   }
 
   /* ---- report tables ---- */
@@ -3074,9 +3196,18 @@
 
   function exportCaption(res) {
     const bits = [];
-    bits.push(res.usedTiles ? 'Base map: ' + currentLayerName + '.' : 'Schematic plan \u2014 base map tiles were unavailable, so positions are shown on a coordinate grid.');
-    if (Math.abs(res.rot) > 0.01) {
-      bits.push('Rotated ' + Math.abs(Math.round(res.rot * 180 / Math.PI)) + '\u00B0 ' + (res.rot < 0 ? 'west' : 'east') + ' of north to fit the frame.');
+    const layerName = exportLayerName();
+    bits.push(res.usedTiles
+      ? 'Base map: ' + layerLabel(layerName) + (layerName === currentLayerName ? '.' : ' (chosen for this download).')
+      : 'Schematic plan \u2014 base map tiles were unavailable, so positions are shown on a coordinate grid.');
+    bits.push(Math.abs(res.rot) > 0.01
+      ? 'North facing: rotated ' + Math.abs(Math.round(res.rot * 180 / Math.PI)) + '\u00B0 ' + (res.rot < 0 ? 'west' : 'east') + ' of north to fit the frame.'
+      : 'North facing: north up.');
+    bits.push(exportPrefs.scale === 'auto'
+      ? 'Map scale approx. ' + scaleLabel(effectiveScale(res.zoom, res.centerLat)) + '.'
+      : 'Map scale ' + scaleLabel(+exportPrefs.scale) + '.');
+    if (res.cropped) {
+      bits.push('The chosen scale is too fine for this plan, so the picture crops it \u2014 pick a larger scale or use Auto to frame everything.');
     }
     bits.push('Numbered pins correspond to the deployments table.');
     return bits.join(' ');
@@ -3100,11 +3231,11 @@
   }
 
   /* ============================================================
-     25b. SAVE OP DATA DIALOG
+     25b. DOWNLOAD DIALOG
      ============================================================
-     One place to take the plan away: a JSON file for a teammate, or a printed
-     PDF sheet. The include ticks feed straight into exportPrefs, so the two
-     legacy buttons and this dialog can never disagree about what a sheet holds. */
+     One place to take the plan away: a JSON file to upload again later, a PDF
+     sheet, or a PNG picture. The map options feed straight into exportPrefs via
+     [data-pref], so the sidebar panel and this dialog can never disagree. */
   const saveOpModal = document.getElementById('saveop-modal');
   let saveOpFormat  = 'json';
 
@@ -3116,6 +3247,18 @@
     ['zones', 'saveop-zones']
   ];
 
+  const FORMAT_BUTTONS = {
+    json: 'saveop-fmt-json',
+    pdf: 'saveop-fmt-pdf',
+    png: 'saveop-fmt-png'
+  };
+
+  const GO_LABEL = {
+    json: 'Download JSON',
+    pdf: 'Download PDF',
+    png: 'Download PNG'
+  };
+
   function applyIncludeToInputs() {
     INCLUDE_FIELDS.forEach(([key, id]) => { $(id).checked = exportPrefs.include[key]; });
   }
@@ -3126,15 +3269,24 @@
   }
 
   function setSaveOpFormat(fmt) {
-    saveOpFormat = fmt;
-    const isJson = fmt === 'json';
-    $('saveop-fmt-json').classList.toggle('is-selected', isJson);
-    $('saveop-fmt-json').setAttribute('aria-checked', String(isJson));
-    $('saveop-fmt-pdf').classList.toggle('is-selected', !isJson);
-    $('saveop-fmt-pdf').setAttribute('aria-checked', String(!isJson));
-    /* The ticks only shape the printed sheet; a JSON save is always complete. */
+    saveOpFormat = FORMAT_BUTTONS[fmt] ? fmt : 'json';
+    Object.keys(FORMAT_BUTTONS).forEach(k => {
+      const el = $(FORMAT_BUTTONS[k]);
+      const on = k === saveOpFormat;
+      el.classList.toggle('is-selected', on);
+      el.setAttribute('aria-checked', String(on));
+    });
+
+    const isJson  = saveOpFormat === 'json';
+    const isPng   = saveOpFormat === 'png';
+    /* A JSON file is always complete, so neither option group applies to it. */
+    $('saveop-map-opts').classList.toggle('is-hidden', isJson);
     $('saveop-include').classList.toggle('is-hidden', isJson);
-    $('saveop-go-btn').textContent = isJson ? 'Save as JSON' : 'Print / Save as PDF';
+    /* The table ticks only mean something when there is a table to print. */
+    $('saveop-include').querySelectorAll('.is-table-only').forEach(el => {
+      el.classList.toggle('is-hidden', isPng);
+    });
+    $('saveop-go-btn').textContent = GO_LABEL[saveOpFormat];
   }
 
   function refreshSaveOpSummary() {
@@ -3148,12 +3300,23 @@
     $('saveop-summary').innerHTML = bits.length
       ? 'This plan holds ' + bits.join(', ') + '.'
       : 'Nothing has been placed yet \u2014 search a location, place deployments or draw a zone first.';
+
+    /* Name the base map that "same as the screen" currently resolves to, so the
+       option reads as a real choice rather than a mystery. */
+    const screenOpt = $('saveop-maptype').querySelector('option[value="screen"]');
+    const exportSide = $('export-maptype');
+    if (screenOpt) screenOpt.textContent = 'Same as the map on screen \u2014 ' + layerLabel(currentLayerName);
+    if (exportSide) {
+      const o = exportSide.querySelector('option[value="screen"]');
+      if (o) o.textContent = 'Same as the map on screen \u2014 ' + layerLabel(currentLayerName);
+    }
   }
 
   function openSaveOpModal() {
     applyIncludeToInputs();
     setSaveOpFormat(saveOpFormat);
     refreshSaveOpSummary();
+    syncPrefControls();
     openModal(saveOpModal);
   }
 
@@ -3162,31 +3325,55 @@
       exportMarkingsFile();
       return;
     }
+
     readIncludeFromInputs();
-    /* A sheet with nothing ticked would come out blank, which reads as a bug
-       rather than a choice - say so instead of opening an empty print dialog. */
-    const picked = INCLUDE_FIELDS.some(([key]) => exportPrefs.include[key]);
-    if (!picked) {
-      setStatus('Tick at least one item to include on the sheet.', 'warn');
+
+    /* The picture options have to be on for a PDF or PNG. A file with nothing
+       to draw would come out blank, which reads as a bug rather than a choice. */
+    const applicable = saveOpFormat === 'png'
+      ? INCLUDE_FIELDS.filter(([k]) => k !== 'deployments' && k !== 'zones')
+      : INCLUDE_FIELDS;
+    if (!applicable.some(([key]) => exportPrefs.include[key])) {
+      setStatus('Tick at least one item to include in the download.', 'warn');
       openSaveOpModal();
       return;
     }
-    await openReport();
+
+    if (saveOpFormat === 'png') { await downloadPlanPng(); return; }
+    await downloadPlanPdf();
   }
 
   $('save-op-btn').addEventListener('click', openSaveOpModal);
+  $('download-btn').addEventListener('click', openSaveOpModal);
+  $('upload-btn').addEventListener('click', () => $('data-import-file').click());
   $('saveop-close').addEventListener('click', () => closeModal(saveOpModal));
   $('saveop-cancel-btn').addEventListener('click', () => closeModal(saveOpModal));
   $('saveop-modal').addEventListener('click', (e) => {
     if (e.target === saveOpModal) closeModal(saveOpModal);
   });
-  $('saveop-fmt-json').addEventListener('click', () => setSaveOpFormat('json'));
-  $('saveop-fmt-pdf').addEventListener('click', () => setSaveOpFormat('pdf'));
+  Object.keys(FORMAT_BUTTONS).forEach(k => {
+    $(FORMAT_BUTTONS[k]).addEventListener('click', () => setSaveOpFormat(k));
+  });
   INCLUDE_FIELDS.forEach(([, id]) => $(id).addEventListener('change', readIncludeFromInputs));
   $('saveop-go-btn').addEventListener('click', () => {
     closeModal(saveOpModal);
     runSaveOp();
   });
+
+  function downloadBlob(blob, fileName) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function planFileName(ext) {
+    return 'gis-helper-plan-' + new Date().toISOString().slice(0, 10) + '.' + ext;
+  }
 
   async function downloadPlanPng() {
     setStatus('Rendering PNG\u2026', 'ok');
@@ -3195,14 +3382,7 @@
       if (!res) return;
       res.canvas.toBlob(blob => {
         if (!blob) { setStatus('Could not create the PNG file.', 'err'); return; }
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'gis-helper-plan-' + new Date().toISOString().slice(0, 10) + '.png';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        downloadBlob(blob, planFileName('png'));
         setStatus('Plan exported as PNG' + (res.usedTiles ? '' : ' (schematic)') + '.', 'ok');
       }, 'image/png');
     } catch (e) {
@@ -3210,38 +3390,446 @@
     }
   }
 
+  /* ============================================================
+     25c. PDF WRITER  (no dependencies)
+     ============================================================
+     A real .pdf is assembled by hand. The map page embeds the export canvas as
+     a JPEG - PDF understands JPEG natively through /DCTDecode, so nothing is
+     re-encoded - and the data pages use the base-14 Helvetica fonts every
+     reader already has. That keeps the app dependency-free while still giving
+     a double-clickable file instead of a print dialog. */
+
+  const PDF_BODY_TOP = PDF_H - 74;
+  const PDF_BOTTOM = 42;
+  const PDF_ROW_H = 15;
+
+  const C_INK    = [0.06, 0.09, 0.12];
+  const C_MUTED  = [0.40, 0.46, 0.52];
+  const C_ACCENT = [0.00, 0.66, 0.60];
+  const C_RULE   = [0.79, 0.83, 0.87];
+  const C_HEADBG = [0.11, 0.16, 0.20];
+  const C_BAND   = [0.96, 0.97, 0.98];
+
+  const PDF_ENC = new TextEncoder();
+
+  function pdfNum(n) { return (Math.round(n * 100) / 100).toString(); }
+  function pdfColor(c) { return c.map(v => pdfNum(v)).join(' '); }
+
+  /* WinAnsi is the encoding every base-14 font assumes. A handful of typographic
+     characters have a byte in WinAnsi and are worth keeping; anything else the
+     app can produce becomes '?' rather than corrupting the stream. */
+  const WINANSI = {
+    '\u2018': 0x91, '\u2019': 0x92, '\u201C': 0x93, '\u201D': 0x94,
+    '\u2013': 0x96, '\u2014': 0x97, '\u2026': 0x85, '\u2022': 0x95,
+    '\u20AC': 0x80, '\u2122': 0x99
+  };
+
+  function pdfString(value) {
+    let out = '';
+    const s = String(value == null ? '' : value);
+    for (let i = 0; i < s.length; i++) {
+      const ch = s[i];
+      const code = s.charCodeAt(i);
+      if (ch === '(' || ch === ')' || ch === '\\') out += '\\' + ch;
+      else if (code === 10 || code === 13 || code === 9) out += ' ';
+      /* Thin and hair spaces, and the primes used in DMS, all have sensible
+         plain-ASCII stand-ins. */
+      else if (code === 0x2000 || (code >= 0x2009 && code <= 0x200A) ||
+               code === 0x202F || code === 0x205F || code === 0x3000) out += ' ';
+      else if (code === 0x2032) out += "'";
+      else if (code === 0x2033) out += '"';
+      else if (WINANSI[ch] !== undefined) out += String.fromCharCode(WINANSI[ch]);
+      else if (code >= 32 && code <= 126) out += ch;
+      else if (code >= 160 && code <= 255) out += String.fromCharCode(code);
+      else out += '?';
+    }
+    return out;
+  }
+
+  function pdfTextOp(x, y, size, text, bold, color) {
+    return pdfColor(color || C_INK) + ' rg\n' +
+      'BT /' + (bold ? 'F2' : 'F1') + ' ' + pdfNum(size) + ' Tf 1 0 0 1 ' +
+      pdfNum(x) + ' ' + pdfNum(y) + ' Tm (' + pdfString(text) + ') Tj ET';
+  }
+
+  function pdfFillOp(x, y, w, h, color) {
+    return pdfColor(color) + ' rg ' +
+      pdfNum(x) + ' ' + pdfNum(y) + ' ' + pdfNum(w) + ' ' + pdfNum(h) + ' re f';
+  }
+
+  function pdfLineOp(x1, y1, x2, y2, color) {
+    return pdfColor(color || C_RULE) + ' RG 0.7 w ' +
+      pdfNum(x1) + ' ' + pdfNum(y1) + ' m ' + pdfNum(x2) + ' ' + pdfNum(y2) + ' l S';
+  }
+
+  function hexToRgb(hex) {
+    const m = /^#?([0-9a-fA-F]{6})$/.exec(String(hex || '').trim());
+    if (!m) return null;
+    const n = parseInt(m[1], 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+
+  /* Helvetica cannot be measured here, so cells are trimmed against an average
+     glyph width. It only has to be close enough not to spill into the next
+     column. */
+  const CHAR_W = 0.53;
+
+  function fitCell(text, width, size) {
+    const s = String(text == null ? '' : text).replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    const max = Math.floor(width / (size * CHAR_W));
+    if (s.length <= max) return s;
+    return s.slice(0, Math.max(1, max - 1)).replace(/[ ,;]+$/, '') + '\u2026';
+  }
+
+  const DEP_COLS = [
+    { label: '#', w: 22, right: true },
+    { label: 'Unit type', w: 92 },
+    { label: 'Commander', w: 92 },
+    { label: 'Troops', w: 40, right: true },
+    { label: 'Vehicles', w: 84 },
+    { label: 'Arms & ammo', w: 96 },
+    { label: 'Equipment', w: 96 },
+    { label: 'Lat / Lon', w: 118, size: 7.2 },
+    { label: 'MGRS 8', w: 100, size: 7.2 }
+  ];
+
+  const ZONE_COLS = [
+    { label: '#', w: 22, right: true },
+    { label: 'Zone name', w: 120 },
+    { label: 'Area', w: 90, right: true },
+    { label: 'Vertices', w: 50, right: true },
+    { label: 'Centre (approx.)', w: 150, size: 7.2 },
+    { label: 'MGRS 8', w: 120, size: 7.2 }
+  ];
+
+  function pdfTableHeaderOps(cols, y) {
+    const ops = [pdfFillOp(PDF_M, y, PDF_W - 2 * PDF_M, PDF_ROW_H, C_HEADBG)];
+    let x = PDF_M;
+    cols.forEach(c => {
+      ops.push(pdfTextOp(x + 4, y + 4.5, 7.5, c.label.toUpperCase(), true, [1, 1, 1]));
+      x += c.w;
+    });
+    return ops;
+  }
+
+  function pdfTableRowOps(cols, cells, y, banded) {
+    const ops = [];
+    if (banded) ops.push(pdfFillOp(PDF_M, y, PDF_W - 2 * PDF_M, PDF_ROW_H, C_BAND));
+    ops.push(pdfLineOp(PDF_M, y, PDF_W - PDF_M, y));
+    let x = PDF_M;
+    cols.forEach((c, i) => {
+      const size = c.size || 7.8;
+      const txt = fitCell(cells[i], c.w - 8, size);
+      /* Numbers and grid references read better right-aligned. */
+      const tx = c.right ? x + c.w - 4 - txt.length * size * CHAR_W : x + 4;
+      ops.push(pdfTextOp(tx, y + 4.5, size, txt, false, C_INK));
+      x += c.w;
+    });
+    return ops;
+  }
+
+  function zoneCentre(z) {
+    const vs = z.vertices || [];
+    if (!vs.length) return null;
+    let la = 0, ln = 0;
+    vs.forEach(v => { la += v.lat; ln += v.lng; });
+    return { lat: la / vs.length, lon: ln / vs.length };
+  }
+
+  /* Facts, tables and unit types, as an ordered flow of blocks that the
+     paginator below spreads over as many pages as they need. */
+  function planBlocks() {
+    const blocks = [];
+
+    const facts = pdfFactsOps();
+    const types = pdfTypesOps(facts.endY - 8);
+    /* The facts block draws at fixed positions from the top of the body down,
+       so its height is however far the unit-type chips finished. */
+    blocks.push({ kind: 'ops', ops: facts.ops.concat(types.ops), h: PDF_BODY_TOP - types.endY });
+
+    if (exportPrefs.include.deployments) {
+      blocks.push({ kind: 'heading', h: 30, text: 'Deployments (' + markings.deployments.length + ')' });
+      markings.deployments.forEach((d, i) => {
+        normaliseDeployment(d);
+        blocks.push({
+          kind: 'row', h: PDF_ROW_H * 2 + 2, cols: DEP_COLS, banded: i % 2 === 1,
+          cells: [
+            String(i + 1), unitLabel(d.type), d.commander || '', String(d.troops || ''),
+            d.vehicles || '', d.arms || '', d.equip || '',
+            Number(d.lat).toFixed(5) + ', ' + Number(d.lon).toFixed(5),
+            safeMgrs(d.lat, d.lon, 4)
+          ]
+        });
+      });
+      if (!markings.deployments.length) blocks.push({ kind: 'note', h: 16, text: 'No deployments in this plan.' });
+    }
+
+    if (exportPrefs.include.zones) {
+      blocks.push({ kind: 'heading', h: 30, text: 'Zones (' + markings.zones.length + ')' });
+      markings.zones.forEach((z, i) => {
+        const c = zoneCentre(z);
+        blocks.push({
+          kind: 'row', h: PDF_ROW_H * 2 + 2, cols: ZONE_COLS, banded: i % 2 === 1,
+          cells: [
+            String(i + 1), z.name, formatArea(z.areaM2), String((z.vertices || []).length),
+            c ? c.lat.toFixed(5) + ', ' + c.lon.toFixed(5) : '',
+            c ? safeMgrs(c.lat, c.lon, 4) : ''
+          ]
+        });
+      });
+      if (!markings.zones.length) blocks.push({ kind: 'note', h: 16, text: 'No zones in this plan.' });
+    }
+
+    return blocks;
+  }
+
+  /* Header and footer, stamped onto a text page once the page count is known. */
+  function pdfPageChrome(pageNo, pageCount) {
+    const ops = [];
+    const title = exportPrefs.title || 'GIS Helper \u2014 Tactical Plan';
+    const bits = [];
+    if (exportPrefs.date) bits.push('Plan date: ' + exportPrefs.date);
+    bits.push('Generated ' + new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }));
+    bits.push('Base map: ' + layerLabel(exportLayerName()));
+    bits.push(exportPrefs.scale === 'auto'
+      ? 'Map scale: fitted to the plan'
+      : 'Map scale: ' + scaleLabel(+exportPrefs.scale));
+    bits.push(exportPrefs.orientation === 'fit' ? 'North facing: rotate to fit' : 'North facing: north up');
+    const scope = {
+      all: 'All deployments, zones and the map indicator',
+      view: 'The area visible on the map at export time',
+      deployments: 'Deployments only',
+      zones: 'Zones only',
+      indicator: 'The map indicator only'
+    }[exportPrefs.frame];
+    if (scope) bits.push('Framing: ' + scope);
+
+    ops.push(pdfTextOp(PDF_M, PDF_H - 34, 13, title, true, C_INK));
+    ops.push(pdfTextOp(PDF_M, PDF_H - 48, 8, bits.join('   \u00B7   '), false, C_MUTED));
+    ops.push(pdfLineOp(PDF_M, PDF_H - 56, PDF_W - PDF_M, PDF_H - 56));
+    ops.push(pdfTextOp(PDF_M, 24, 7.5,
+      'Produced with GIS Helper \u2014 no account, no server. Positions are WGS 84.', false, C_MUTED));
+    ops.push(pdfTextOp(PDF_W - PDF_M, 24, 7.5, 'Page ' + pageNo + ' of ' + pageCount, false, C_MUTED));
+    return ops;
+  }
+
+  function pdfFactsOps() {
+    const hasInd = validIndicator(savedIndicator);
+    const ops = [pdfTextOp(PDF_M, PDF_BODY_TOP, 10, 'Map indicator', true, C_INK)];
+    let y = PDF_BODY_TOP - 16;
+    const rows = hasInd
+      ? [
+          ['Location', $('place').textContent || savedIndicator.name || ''],
+          ['Lat / Lon (DD)', $('o-latlon').textContent],
+          ['Lat / Lon (DMS)', $('o-dms').textContent],
+          ['ArcGIS XY (UTM)', $('o-utm').textContent],
+          ['MGRS 6-digit (100 m)', $('o-m6').textContent],
+          ['MGRS 8-digit (10 m)', $('o-m8').textContent],
+          ['MGRS 10-digit (1 m)', $('o-m10').textContent]
+        ]
+      : [['Location', 'No map indicator in this plan']];
+    rows.forEach(r => {
+      ops.push(pdfTextOp(PDF_M + 8, y, 8, r[0], false, C_MUTED));
+      ops.push(pdfTextOp(PDF_M + 180, y, 8, fitCell(r[1], PDF_W - 2 * PDF_M - 190, 8), false, C_INK));
+      y -= 13;
+    });
+    return { ops, endY: y };
+  }
+
+  function pdfTypesOps(startY) {
+    const ops = [];
+    let y = startY;
+    if (!exportPrefs.include.deployments) return { ops, endY: y };
+
+    const used = [];
+    markings.deployments.forEach(d => {
+      normaliseDeployment(d);
+      if (!used.some(t => t.id === d.type)) used.push({ label: resolveType(d.type).label, color: d.color });
+    });
+    if (!used.length) return { ops, endY: y };
+
+    ops.push(pdfTextOp(PDF_M, y, 10, 'Unit types in this plan', true, C_INK));
+    y -= 18;
+    let x = PDF_M + 8;
+    used.forEach(t => {
+      const label = t.label + '   ';
+      const w = label.length * 8 * CHAR_W + 18;
+      if (x + w > PDF_W - PDF_M) { x = PDF_M + 8; y -= 16; }
+      ops.push(pdfFillOp(x, y + 1, 8, 8, hexToRgb(t.color) || [0.5, 0.5, 0.5]));
+      ops.push(pdfTextOp(x + 13, y + 2, 8, label, false, C_INK));
+      x += w;
+    });
+    return { ops, endY: y - 10 };
+  }
+
+  function canvasToJpeg(canvas, quality) {
+    const url = canvas.toDataURL('image/jpeg', quality || 0.9);
+    const bin = atob(url.slice(url.indexOf(',') + 1));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i) & 0xFF;
+    return { bytes, width: canvas.width, height: canvas.height };
+  }
+
+  /* Objects are numbered here rather than by a library, so the cross-reference
+     table is a plain loop over the same list. */
+  function assemblePdf(pages, img) {
+    const objs = [];
+    const imgObjNum = img ? 5 : 0;
+    const firstPage = img ? 6 : 5;
+
+    objs.push('<< /Type /Catalog /Pages 2 0 R >>');
+    objs.push('<< /Type /Pages /Kids [' +
+      pages.map((_, i) => (firstPage + i * 2) + ' 0 R').join(' ') +
+      '] /Count ' + pages.length + ' >>');
+    objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+    objs.push('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+
+    if (img) {
+      objs.push({
+        head: PDF_ENC.encode(
+          '<< /Type /XObject /Subtype /Image /Width ' + img.width + ' /Height ' + img.height +
+          ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode' +
+          ' /Length ' + img.bytes.length + ' >>\nstream\n'),
+        mid: img.bytes,
+        tail: PDF_ENC.encode('\nendstream')
+      });
+    }
+
+    pages.forEach((page, i) => {
+      const contentNum = firstPage + i * 2 + 1;
+      objs.push(
+        '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PDF_W + ' ' + PDF_H + ']' +
+        ' /Resources <<' +
+        (img ? ' /XObject << /Im0 ' + imgObjNum + ' 0 R >>' : '') +
+        ' /Font << /F1 3 0 R /F2 4 0 R >> >>' +
+        ' /Contents ' + contentNum + ' 0 R >>'
+      );
+      objs.push({
+        head: PDF_ENC.encode('<< /Length ' + page.bytes.length + ' >>\nstream\n'),
+        mid: page.bytes,
+        tail: PDF_ENC.encode('\nendstream')
+      });
+    });
+
+    const chunks = [];
+    let pos = 0;
+    const put = u8 => { chunks.push(u8); pos += u8.length; };
+
+    put(PDF_ENC.encode('%PDF-1.4\n'));
+    put(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));   /* binary marker */
+
+    const offsets = [];
+    objs.forEach((o, i) => {
+      offsets[i + 1] = pos;
+      put(PDF_ENC.encode((i + 1) + ' 0 obj\n'));
+      if (typeof o === 'string') put(PDF_ENC.encode(o));
+      else { put(o.head); put(o.mid); put(o.tail); }
+      put(PDF_ENC.encode('\nendobj\n'));
+    });
+
+    let xref = 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n';
+    for (let i = 1; i <= objs.length; i++) {
+      xref += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+    }
+    xref += 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\n' +
+            'startxref\n' + pos + '\n%%EOF\n';
+    put(PDF_ENC.encode(xref));
+
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+
+  async function buildPlanPdf() {
+    let img = null;
+    let caption = '';
+    if (exportPrefs.include.map) {
+      setStatus('Preparing the map picture\u2026', 'ok');
+      const res = await buildExportCanvas();
+      if (!res) return null;
+      img = canvasToJpeg(res.canvas, 0.9);
+      caption = exportCaption(res);
+    }
+
+    /* The map is its own page; the data flow starts on the next one. */
+    const blocks = planBlocks();
+    const pages = [];
+
+    /* Lay the blocks out top-down, starting a new page when the next one will
+       not fit above the footer. */
+    const textPages = [];
+    let cur = [];
+    let curY = PDF_BODY_TOP;
+    const flush = () => {
+      if (cur.length) textPages.push(cur);
+      cur = [];
+      curY = PDF_BODY_TOP;
+    };
+
+    blocks.forEach(b => {
+      if (curY - b.h < PDF_BOTTOM) flush();
+      if (b.kind === 'ops') {
+        cur.push.apply(cur, b.ops);
+      } else if (b.kind === 'heading') {
+        cur.push(pdfTextOp(PDF_M, curY, 10, b.text, true, C_INK));
+        cur.push(pdfLineOp(PDF_M, curY - 6, PDF_W - PDF_M, curY - 6, C_ACCENT));
+      } else if (b.kind === 'note') {
+        cur.push(pdfTextOp(PDF_M + 8, curY - 6, 8, b.text, false, C_MUTED));
+      } else if (b.kind === 'row') {
+        cur.push.apply(cur, pdfTableHeaderOps(b.cols, curY - PDF_ROW_H));
+        cur.push.apply(cur, pdfTableRowOps(b.cols, b.cells, curY - PDF_ROW_H * 2 - 2, b.banded));
+      }
+      curY -= b.h;
+    });
+    flush();
+
+    const total = (img ? 1 : 0) + textPages.length;
+
+    if (img) {
+      const availW = PDF_W - 2 * PDF_M;
+      const availH = PDF_H - 2 * PDF_M - 18;
+      const s = Math.min(availW / img.width, availH / img.height);
+      const w = img.width * s, h = img.height * s;
+      const x = (PDF_W - w) / 2, y = PDF_H - PDF_M - h - 16;
+      const ops = [
+        'q ' + pdfNum(w) + ' 0 0 ' + pdfNum(h) + ' ' + pdfNum(x) + ' ' + pdfNum(y) + ' cm /Im0 Do Q',
+        pdfColor(C_RULE) + ' RG 0.8 w ' +
+          pdfNum(x) + ' ' + pdfNum(y) + ' ' + pdfNum(w) + ' ' + pdfNum(h) + ' re S',
+        pdfTextOp(PDF_M, PDF_H - 34, 13, exportPrefs.title || 'GIS Helper \u2014 Tactical Plan', true, C_INK),
+        pdfTextOp(PDF_M, 26, 8, caption, false, C_MUTED),
+        pdfTextOp(PDF_W - PDF_M, 26, 8, 'Page 1 of ' + total, false, C_MUTED)
+      ];
+      pages.push({ bytes: PDF_ENC.encode(ops.join('\n')) });
+    }
+
+    /* The header and footer quote the page count, so they are stamped on once
+       the flow has decided how many pages it needs. */
+    textPages.forEach((pageOps, i) => {
+      const pageNo = (img ? 1 : 0) + i + 1;
+      const ops = pageOps.concat(pdfPageChrome(pageNo, total));
+      pages.push({ bytes: PDF_ENC.encode(ops.join('\n')) });
+    });
+
+    return assemblePdf(pages, img);
+  }
+
+  async function downloadPlanPdf() {
+    setStatus('Building PDF\u2026', 'ok');
+    try {
+      const blob = await buildPlanPdf();
+      if (!blob) return;
+      downloadBlob(blob, planFileName('pdf'));
+      setStatus('Plan downloaded as PDF.', 'ok');
+    } catch (e) {
+      setStatus('Could not build the PDF: ' + e.message, 'err');
+    }
+  }
+
   $('report-print-btn').addEventListener('click', openReport);
   $('report-png-btn').addEventListener('click', downloadPlanPng);
 
   /* ---- export options UI ---- */
-  function applyExportPrefsToInputs() {
-    $('export-frame').value = exportPrefs.frame;
-    $('export-scale').value = exportPrefs.scaleUnits;
-    $('export-rotate').checked = exportPrefs.rotate;
-    $('export-title').value = exportPrefs.title;
-    $('export-date').value = exportPrefs.date;
-  }
-
-  $('export-frame').addEventListener('change', (e) => {
-    exportPrefs.frame = e.target.value;
-    saveExportPrefs();
-  });
-  $('export-scale').addEventListener('change', (e) => {
-    exportPrefs.scaleUnits = e.target.value;
-    saveExportPrefs();
-  });
-  $('export-rotate').addEventListener('change', (e) => {
-    exportPrefs.rotate = e.target.checked;
-    saveExportPrefs();
-  });
-  $('export-title').addEventListener('input', (e) => {
-    exportPrefs.title = e.target.value.slice(0, 60);
-    saveExportPrefs();
-  });
-  $('export-date').addEventListener('change', (e) => {
-    exportPrefs.date = /^\d{4}-\d{2}-\d{2}$/.test(e.target.value) ? e.target.value : '';
-    saveExportPrefs();
-  });
+  /* Every [data-pref] control is wired once at boot, so adding an option to
+     the sidebar and to the Download dialog is just markup. */
 
   /* ============================================================
      26. BOOT
@@ -3249,7 +3837,7 @@
   loadCustomTypes();
   loadMarkingsFromStorage();
   loadExportPrefs();
-  applyExportPrefsToInputs();
+  initPrefControls();
   renderTypeSelect();
   populateIconOptions();
   updateDeployPreview();

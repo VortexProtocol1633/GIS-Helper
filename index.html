@@ -133,6 +133,26 @@
       </div>
     </div>
 
+    <!-- DATA TRANSFER: download the plan / upload a saved plan -->
+    <div class="topbar-actions">
+      <button class="icon-btn" id="download-btn" aria-label="Download the plan" title="Download the plan — JSON, PDF or PNG">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span class="icon-btn-label">Download</span>
+      </button>
+      <button class="icon-btn" id="upload-btn" aria-label="Upload a saved plan" title="Upload a saved JSON plan — or drop a .json file anywhere on the page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span class="icon-btn-label">Upload</span>
+      </button>
+    </div>
+
     <!-- ABOUT (guide + creator, tabbed) -->
     <button class="icon-btn about-btn" id="about-btn" aria-label="About GIS Helper" title="About GIS Helper">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -323,14 +343,15 @@
 
     <!-- ===================== DATA MANAGEMENT ===================== -->
     <section class="card card-data" id="data-card">
-      <h2><span class="step">6</span> Save &amp; Share</h2>
+      <h2><span class="step">6</span> Download &amp; Upload</h2>
 
       <div class="data-actions">
-        <button id="save-op-btn" class="btn btn-primary">&#128190; Save Op Data</button>
+        <button id="save-op-btn" class="btn btn-primary">&#11015; Download plan</button>
       </div>
 
-      <p class="note">One dialog for the whole plan: write it out as a <b>JSON</b> file for a
-        teammate, or print it to a <b>PDF</b> map sheet. You choose what goes in.</p>
+      <p class="note">One dialog for the whole plan: download it as a <b>JSON</b> file you can upload
+        again later, a <b>PDF</b> map sheet, or a <b>PNG</b> picture. You choose the map type,
+        scale bar, north facing and what goes in.</p>
 
       <div class="data-divider"></div>
 
@@ -347,7 +368,7 @@
       </div>
 
       <div class="data-actions">
-        <button id="data-import-btn" class="btn btn-ghost">&#128229; Import JSON file</button>
+        <button id="data-import-btn" class="btn btn-ghost">&#11014; Upload JSON file</button>
         <input type="file" id="data-import-file" accept=".json,application/json" style="display:none;" />
       </div>
 
@@ -360,7 +381,7 @@
 
         <div class="export-opt">
           <label class="lbl" for="export-frame">Frame</label>
-          <select id="export-frame" class="input">
+          <select id="export-frame" class="input" data-pref="frame">
             <option value="all">All deployments, zones &amp; indicator</option>
             <option value="view">Whatever the map is showing</option>
             <option value="deployments">Deployments only</option>
@@ -370,8 +391,26 @@
         </div>
 
         <div class="export-opt">
+          <label class="lbl" for="export-mapscale">Map scale</label>
+          <select id="export-mapscale" class="input" data-pref="scale">
+            <option value="auto">Auto — fit the whole plan</option>
+            <option value="5000">1:5 000</option>
+            <option value="10000">1:10 000</option>
+            <option value="25000">1:25 000</option>
+            <option value="50000">1:50 000</option>
+            <option value="100000">1:100 000</option>
+            <option value="250000">1:250 000</option>
+            <option value="500000">1:500 000</option>
+            <option value="1000000">1:1 000 000</option>
+            <option value="2000000">1:2 000 000</option>
+            <option value="5000000">1:5 000 000</option>
+            <option value="10000000">1:10 000 000</option>
+          </select>
+        </div>
+
+        <div class="export-opt">
           <label class="lbl" for="export-scale">Scale bar</label>
-          <select id="export-scale" class="input">
+          <select id="export-scale" class="input" data-pref="scaleUnits">
             <option value="both">Metric + imperial</option>
             <option value="metric">Metric only</option>
             <option value="imperial">Imperial only</option>
@@ -379,23 +418,39 @@
           </select>
         </div>
 
-        <label class="check-row" for="export-rotate">
-          <input type="checkbox" id="export-rotate" />
-          <span>Rotate to fit <em>&mdash; spin the plan onto its longest axis so a long or diagonal plan fills the frame</em></span>
-        </label>
+        <div class="export-opt">
+          <label class="lbl" for="export-maptype">Map type</label>
+          <select id="export-maptype" class="input" data-pref="mapType">
+            <option value="screen">Same as the map on screen</option>
+            <option value="standard">Standard (OSM)</option>
+            <option value="satellite">Satellite</option>
+            <option value="terrain">Terrain</option>
+            <option value="humanitarian">Humanitarian</option>
+            <option value="dark">Dark (CARTO)</option>
+          </select>
+        </div>
+
+        <div class="export-opt">
+          <label class="lbl" for="export-orientation">North facing</label>
+          <select id="export-orientation" class="input" data-pref="orientation">
+            <option value="north">North up</option>
+            <option value="fit">Rotate to fit</option>
+          </select>
+        </div>
 
         <div class="export-opt">
           <label class="lbl" for="export-title">Plan title <em>(optional)</em></label>
-          <input id="export-title" class="input" type="text" maxlength="60" placeholder="e.g. Exercise Ironclad" />
+          <input id="export-title" class="input" type="text" maxlength="60" placeholder="e.g. Exercise Ironclad" data-pref="title" />
         </div>
 
         <div class="export-opt">
           <label class="lbl" for="export-date">Plan date <em>(optional)</em></label>
-          <input id="export-date" class="input" type="date" />
+          <input id="export-date" class="input" type="date" data-pref="date" />
         </div>
 
-        <p class="note">Options are remembered in this browser. The title and date print on the
-          report header only &mdash; they are not burned into the PNG.</p>
+        <p class="note">These are the same settings the <b>Download</b> dialog uses &mdash; change
+          them in either place and both stay in step. Options are remembered in this browser;
+          the title and date print on the sheet, not on the PNG.</p>
       </div>
 
       <div class="data-actions export-actions">
@@ -564,10 +619,11 @@
               </p>
             </div>
             <div class="help-tile">
-              <h4>&#128190; Saved &amp; shareable</h4>
+              <h4>&#128229; Download &amp; upload</h4>
               <p>
-                Markings persist in your browser automatically, and can be exported
-                to or imported from a JSON file so the whole team sees the same map.
+                Take the whole plan away as a <b>JSON</b> file, a <b>PDF</b> sheet or a <b>PNG</b>
+                picture &mdash; with your choice of map type, scale bar and north facing &mdash;
+                then upload a teammate's file to keep working from it.
               </p>
             </div>
           </div>
@@ -575,7 +631,7 @@
           <div class="help-callout">
             <span class="callout-dot"></span>
             <p>Everything lives in your browser — nothing is uploaded anywhere.
-               Use <b>Export JSON file</b> if you need to move markings to another machine.</p>
+               Use the <b>Download</b> button to take the plan away as JSON, PDF or PNG.</p>
           </div>
         </section>
 
@@ -589,7 +645,7 @@
           </p>
           <div class="help-callout">
             <span class="callout-dot"></span>
-            <p>New here? Open the <b>Guide</b> tab for a step-by-step walkthrough with pictures.</p>
+            <p>New here? Open the <b>Guide</b> tab for a step-by-step walkthrough with real screen captures.</p>
           </div>
         </section>
 
@@ -661,42 +717,77 @@
       <div class="tab-panel" id="panel-guide" role="tabpanel" aria-labelledby="tab-guide">
 
         <section class="help-section">
+          <h3><span class="pill">Guide</span> Everything on one screen</h3>
+          <p>
+            GIS Helper is one page with six numbered cards down the left and the map on the right.
+            Work top to bottom: find a point, read the coordinates, mark up the ground, then take
+            the result away as a file. The pictures below are <b>real screen captures</b> of the
+            running app, not sketches.
+          </p>
+
+          <figure class="shot">
+            <img src="Assets/guide/overview.jpg" width="1120" height="656" loading="lazy" decoding="async"
+                 alt="The full GIS Helper screen: six numbered cards down the left, a base map on the right with a marker, three deployment pins and two shaded zones." />
+            <figcaption><b>Figure 1</b> — the whole workspace. This example holds three deployments
+              and two zones around the Statue of Liberty.</figcaption>
+          </figure>
+
+          <div class="guide-steps">
+            <span class="guide-step">1 &middot; Location</span>
+            <span class="guide-step">2 &middot; Dashboard</span>
+            <span class="guide-step">3 &middot; Map</span>
+            <span class="guide-step">4 &middot; Deployments</span>
+            <span class="guide-step">5 &middot; Zones</span>
+            <span class="guide-step">6 &middot; Download</span>
+            <span class="guide-step">7 &middot; Upload</span>
+          </div>
+
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>Top bar</h4>
+              <p>Status pill, the <b>Deploy</b> / <b>Zones</b> panel toggles, <b>Theme</b>,
+                 <b>Download</b>, <b>Upload</b> and <b>About</b>.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Cards 1&ndash;3</h4>
+              <p>Input, the converted coordinates, and the live cursor readout.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Cards 4&ndash;5</h4>
+              <p>Deployments and zones. Each collapses its list until you open it from the top bar.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Card 6</h4>
+              <p>Save, share, upload and export &mdash; plus the export options used by the Download dialog.</p>
+            </div>
+            <div class="help-tile">
+              <h4>The map</h4>
+              <p>Zoom controls, base-map switcher, cursor HUD, scale bar and attribution.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Everything is local</h4>
+              <p>No account, no server. Your plan lives in this browser and in the files you export.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ---------------- STEP 1 ---------------- -->
+        <section class="help-section">
           <h3><span class="pill">Step 1</span> Enter a location</h3>
-          <p>Type a value into the input box and either press <kbd>Enter</kbd> or click
-             <b>Locate &amp; convert</b>. The tool supports four input formats.</p>
+          <p>Type anything that identifies a point, then press <kbd>Enter</kbd> or click
+             <b>Locate &amp; convert</b>. Four input formats are understood.</p>
 
-          <figure class="illus-fig">
-            <svg class="illus" viewBox="0 0 420 236" role="img"
-                 aria-label="The Step 1 input card: a text field, a format menu, a UTM zone field and the Locate and convert button.">
-              <rect class="il-panel" x="6" y="6" width="408" height="224" rx="16"/>
-              <rect class="il-stroke" x="6.5" y="6.5" width="407" height="223" rx="15.5"/>
-
-              <rect class="il-accent" x="24" y="22" width="22" height="22" rx="7"/>
-              <text class="il-badge il-on-accent" x="35" y="37" text-anchor="middle">1</text>
-              <text class="il-cap2" x="56" y="37">ENTER A LOCATION</text>
-
-              <rect class="il-line" x="24" y="58" width="168" height="6" rx="3"/>
-              <rect class="il-field" x="24" y="72" width="372" height="36" rx="10"/>
-              <text class="il-value" x="38" y="95">Statue of Liberty, New York</text>
-
-              <rect class="il-line" x="24" y="120" width="52" height="5" rx="2.5"/>
-              <rect class="il-line" x="218" y="120" width="72" height="5" rx="2.5"/>
-              <rect class="il-field" x="24" y="132" width="178" height="34" rx="10"/>
-              <text class="il-muted-text" x="38" y="154">Auto-detect</text>
-              <rect class="il-field" x="218" y="132" width="178" height="34" rx="10"/>
-              <text class="il-muted-text" x="232" y="154">e.g. 18N</text>
-
-              <rect class="il-accent" x="24" y="176" width="372" height="36" rx="10"/>
-              <text class="il-cta il-on-accent" x="210" y="199" text-anchor="middle">Locate &amp; convert</text>
-            </svg>
-            <figcaption><b>Figure 1</b> — Step 1, the input card. Leave <b>Format</b> on
-              <em>Auto-detect</em> and the status pill in the top bar tells you what it recognised as you type.</figcaption>
+          <figure class="shot">
+            <img src="Assets/guide/input.jpg" width="462" height="844" loading="lazy" decoding="async"
+                 alt="The Enter a location card: a text box, a Format menu set to Auto-detect, a UTM zone box and a Locate and convert button." />
+            <figcaption><b>Figure 2</b> — card 1. Leave <b>Format</b> on <em>Auto-detect</em> unless
+              you want to force one; the status pill in the top bar tells you what it recognised as you type.</figcaption>
           </figure>
 
           <div class="help-grid">
             <div class="help-tile">
               <h4>Place name</h4>
-              <p>Any free-text search — cities, addresses, landmarks.</p>
+              <p>Any free-text search &mdash; cities, addresses, landmarks.</p>
               <code>Statue of Liberty, New York</code>
               <code>Eiffel Tower</code>
             </div>
@@ -704,7 +795,7 @@
               <h4>Latitude / Longitude</h4>
               <p>Decimal degrees or DMS, with or without hemisphere letters.</p>
               <code>40.6892, -74.0445</code>
-              <code>40° 41' 21" N, 74° 02' 40" W</code>
+              <code>40&deg; 41' 21" N, 74&deg; 02' 40" W</code>
             </div>
             <div class="help-tile">
               <h4>MGRS / USNG grid</h4>
@@ -714,288 +805,125 @@
             </div>
             <div class="help-tile">
               <h4>ArcGIS XY (UTM)</h4>
-              <p>Easting / Northing in metres. Type the zone in the box next to
-                 the format menu, or include it inline.</p>
-              <code>580736, 4504695 &nbsp;+ zone 18N</code>
+              <p>Easting / Northing in metres. Put the zone in the box beside the Format menu, or inline.</p>
+              <code>580736, 4504695</code>
               <code>18N 580736 4504695</code>
             </div>
           </div>
 
           <div class="help-callout">
             <span class="callout-dot"></span>
-            <p><b>Auto-detect</b> is on by default — the status pill in the top bar shows
-               which format the tool has recognised as you type.</p>
+            <p>Pasting XY with no zone asks you for the UTM zone before converting. Grid references
+               with no spaces &mdash; <code>18TWL8073504695</code> &mdash; are accepted too.</p>
           </div>
         </section>
 
+        <!-- ---------------- STEP 2 ---------------- -->
         <section class="help-section">
-          <h3><span class="pill">Step 2</span> Coordinate dashboard</h3>
-          <p>Once a location is found, every format is shown at once — <b>and every row is clickable</b>,
-             so you can copy a single value instead of the whole set.</p>
+          <h3><span class="pill">Step 2</span> Read the dashboard</h3>
+          <p>Every format of the chosen point is shown at once, and <b>every row is clickable</b>
+             &mdash; click one to copy just that value, or use <b>Copy results as JSON</b> for all of
+             them in one go.</p>
 
-          <figure class="illus-fig">
-            <svg class="illus" viewBox="0 0 420 250" role="img"
-                 aria-label="The Step 2 coordinate dashboard card: a place name bar followed by rows for decimal degrees, DMS, UTM XY and MGRS grid.">
-              <rect class="il-panel" x="6" y="6" width="408" height="238" rx="16"/>
-              <rect class="il-stroke" x="6.5" y="6.5" width="407" height="237" rx="15.5"/>
-
-              <rect class="il-accent" x="24" y="22" width="22" height="22" rx="7"/>
-              <text class="il-badge il-on-accent" x="35" y="37" text-anchor="middle">2</text>
-              <text class="il-cap2" x="56" y="37">COORDINATE DASHBOARD</text>
-
-              <rect class="il-accent-soft" x="24" y="56" width="372" height="30" rx="10"/>
-              <text class="il-value" x="38" y="75">Statue of Liberty, New York, USA</text>
-
-              <rect class="il-field" x="24" y="94" width="372" height="34" rx="10"/>
-              <text class="il-label" x="36" y="108">LAT / LON (DD)</text>
-              <text class="il-mono" x="36" y="122">40.689200° N, 74.044500° W</text>
-
-              <rect class="il-field" x="24" y="134" width="372" height="34" rx="10"/>
-              <text class="il-label" x="36" y="148">LAT / LON (DMS)</text>
-              <text class="il-mono" x="36" y="162">40°41'21.12"N  74°02'40.20"W</text>
-
-              <rect class="il-field" x="24" y="174" width="372" height="34" rx="10"/>
-              <text class="il-label" x="36" y="188">ARCGIS XY — UTM E / N</text>
-              <text class="il-mono" x="36" y="202">18N  580,736 E  4,504,695 N</text>
-
-              <rect class="il-field" x="24" y="214" width="372" height="26" rx="10"/>
-              <text class="il-label" x="36" y="231">GRID — MGRS 10-DIGIT (1 M)</text>
-              <text class="il-mono" x="384" y="231" text-anchor="end">18T WL 80735 04695</text>
-            </svg>
-            <figcaption><b>Figure 2</b> — Step 2, the dashboard. Hover a row to highlight it;
-              click it to copy that one value to the clipboard.</figcaption>
+          <figure class="shot">
+            <img src="Assets/guide/card1.jpg" width="462" height="844" loading="lazy" decoding="async"
+                 alt="The Coordinate dashboard card listing decimal degrees, DMS, ArcGIS XY, and MGRS at 6, 8 and 10 digits, plus a Copy results as JSON button." />
+            <figcaption><b>Figure 3</b> — card 2. Hover a row to highlight it, click to copy that one
+              value to the clipboard.</figcaption>
           </figure>
 
           <ul class="help-list">
-            <li><b>Latitude / Longitude (DD)</b> — decimal degrees with N/S/E/W.</li>
-            <li><b>Latitude / Longitude (DMS)</b> — degrees, minutes, seconds.</li>
-            <li><b>ArcGIS XY</b> — UTM Easting &amp; Northing in metres, with zone &amp; hemisphere.</li>
-            <li><b>MGRS 6-digit</b> — a 100 m × 100 m square.</li>
-            <li><b>MGRS 8-digit</b> — a 10 m × 10 m square.</li>
-            <li><b>MGRS 10-digit</b> — a 1 m × 1 m square.</li>
+            <li><b>Lat / Lon (DD)</b> &mdash; decimal degrees with N/S/E/W.</li>
+            <li><b>Lat / Lon (DMS)</b> &mdash; degrees, minutes, seconds.</li>
+            <li><b>ArcGIS XY</b> &mdash; UTM easting &amp; northing in metres, with the zone.</li>
+            <li><b>MGRS 6 / 8 / 10-digit</b> &mdash; a 100 m, 10 m and 1 m square respectively.</li>
           </ul>
-          <p>The <b>Copy results as JSON</b> button puts <i>all</i> values into your clipboard
-             in a clean, machine-readable structure.</p>
-        </section>
-
-        <section class="help-section">
-          <h3><span class="pill">Step 3</span> Live cursor &amp; the map</h3>
-          <p>Move the mouse over the map and the values follow you in two places at once.</p>
-
-          <figure class="illus-fig">
-            <svg class="illus" viewBox="0 0 420 260" role="img"
-                 aria-label="The map panel: a themed result marker, zoom buttons on the top left, a base map button on the top right, a scale bar bottom left and the cursor position panel bottom right.">
-              <rect class="il-ground" x="0" y="0" width="420" height="260" rx="16"/>
-
-              <rect class="il-block" x="30" y="42" width="92" height="58" rx="6" opacity=".55"/>
-              <rect class="il-block" x="152" y="92" width="108" height="68" rx="6" opacity=".4"/>
-              <rect class="il-block" x="300" y="42" width="78" height="92" rx="6" opacity=".35"/>
-
-              <path class="il-road" d="M0 170 H420"/>
-              <path class="il-road" d="M120 0 V260"/>
-              <path class="il-road" d="M290 0 V260"/>
-              <path class="il-road" d="M0 70 H420"/>
-
-              <!-- result marker -->
-              <circle class="il-accent" cx="180" cy="150" r="11" opacity=".22"/>
-              <path class="il-accent" d="M180 106c-8.837 0-16 7.163-16 16 0 12 16 28 16 28s16-16 16-28c0-8.837-7.163-16-16-16z"/>
-              <circle class="il-ground" cx="180" cy="122" r="5.5"/>
-
-              <!-- zoom control -->
-              <rect class="il-panel-strong" x="16" y="16" width="40" height="80" rx="13"/>
-              <rect class="il-stroke" x="16.5" y="16.5" width="39" height="79" rx="12.5"/>
-              <line class="il-divider" x1="17" y1="56" x2="55" y2="56"/>
-              <text class="il-ctrl" x="36" y="45" text-anchor="middle">+</text>
-              <text class="il-ctrl" x="36" y="79" text-anchor="middle">−</text>
-
-              <!-- layer button -->
-              <rect class="il-panel-strong" x="364" y="16" width="40" height="40" rx="13"/>
-              <rect class="il-stroke" x="364.5" y="16.5" width="39" height="39" rx="12.5"/>
-              <path class="il-ctrl-stroke" d="M384 26l-8 4 8 4 8-4z"/>
-              <path class="il-ctrl-stroke" d="M376 36.5l8 4 8-4"/>
-
-              <!-- scale bar -->
-              <line class="il-scale" x1="16" y1="242" x2="96" y2="242"/>
-              <line class="il-scale" x1="16" y1="235" x2="16" y2="249"/>
-              <line class="il-scale" x1="56" y1="238" x2="56" y2="246"/>
-              <line class="il-scale" x1="96" y1="235" x2="96" y2="249"/>
-              <text class="il-scale-text" x="56" y="230" text-anchor="middle">100 m</text>
-
-              <!-- cursor HUD -->
-              <rect class="il-panel-strong" x="216" y="148" width="188" height="104" rx="16"/>
-              <rect class="il-stroke" x="216.5" y="148.5" width="187" height="103" rx="15.5"/>
-              <line class="il-divider" x1="217" y1="174" x2="403" y2="174"/>
-              <circle class="il-accent" cx="230" cy="161" r="3.5"/>
-              <text class="il-label" x="240" y="165">CURSOR POSITION</text>
-              <text class="il-hud-label" x="228" y="190">LAT / LON</text>
-              <text class="il-hud-val" x="392" y="190" text-anchor="end">40.6892, -74.0445</text>
-              <text class="il-hud-label" x="228" y="208">ARCGIS XY</text>
-              <text class="il-hud-val" x="392" y="208" text-anchor="end">580,736 4,504,695</text>
-              <text class="il-hud-label" x="228" y="226">MGRS 6</text>
-              <text class="il-hud-val" x="392" y="226" text-anchor="end">18T WL 807 046</text>
-              <text class="il-hud-label" x="228" y="244">MGRS 8</text>
-              <text class="il-hud-val" x="392" y="244" text-anchor="end">18T WL 8073 0469</text>
-            </svg>
-            <figcaption><b>Figure 3</b> — Step 3. The sidebar card and the on-map
-              <b>Cursor position</b> panel show the same live values.</figcaption>
-          </figure>
-
-          <ul class="help-list">
-            <li>The <b>Live cursor</b> card in the sidebar updates with the current position.</li>
-            <li>The <b>Cursor position</b> panel at the bottom-right of the map mirrors the same values.</li>
-            <li><b>Click anywhere</b> on the map to lock that point as the active location — the dashboard, marker and popup all update.</li>
-            <li><b>Drag the marker</b> to fine-tune the position — the dashboard updates on release.</li>
-          </ul>
-        </section>
-
-        <section class="help-section">
-          <h3><span class="pill">Map</span> Controls &amp; layers</h3>
-
-          <figure class="illus-fig">
-            <svg class="illus" viewBox="0 0 300 250" role="img"
-                 aria-label="The base map menu listing Standard, Satellite, Terrain, Humanitarian and Dark options.">
-              <rect class="il-panel-strong" x="6" y="6" width="288" height="238" rx="16"/>
-              <rect class="il-stroke" x="6.5" y="6.5" width="287" height="237" rx="15.5"/>
-              <text class="il-label" x="22" y="30">BASE MAP</text>
-
-              <rect class="il-accent-soft" x="14" y="44" width="272" height="32" rx="10"/>
-              <rect class="il-sw il-sw-standard" x="24" y="49" width="22" height="22" rx="7"/>
-              <text class="il-item-active" x="56" y="65">Standard (OSM)</text>
-
-              <rect class="il-sw il-sw-satellite" x="24" y="85" width="22" height="22" rx="7"/>
-              <text class="il-item" x="56" y="101">Satellite</text>
-
-              <rect class="il-sw il-sw-terrain" x="24" y="121" width="22" height="22" rx="7"/>
-              <text class="il-item" x="56" y="137">Terrain</text>
-
-              <rect class="il-sw il-sw-humanitarian" x="24" y="157" width="22" height="22" rx="7"/>
-              <text class="il-item" x="56" y="173">Humanitarian</text>
-
-              <rect class="il-sw il-sw-dark" x="24" y="193" width="22" height="22" rx="7"/>
-              <text class="il-item" x="56" y="209">Dark (CARTO)</text>
-            </svg>
-            <figcaption><b>Figure 4</b> — the base map menu. <em>Dark (CARTO)</em> blends with
-              the glass theme; <em>Satellite</em> and <em>Terrain</em> are best for field work.</figcaption>
-          </figure>
-
-          <ul class="help-list">
-            <li><b>Zoom</b> — the +/− buttons on the top-left, or a scroll wheel / pinch.</li>
-            <li><b>Layer switcher</b> — the stacked-layers button on the top-right opens the menu above with five base maps.</li>
-            <li><b>Scale bar &amp; attribution</b> — bottom-left, showing metric and imperial units.</li>
-          </ul>
-        </section>
-
-        <section class="help-section">
-          <h3><span class="pill">Reference</span> Format cheat sheet</h3>
-
-          <div class="help-table">
-            <div class="help-row help-row-head">
-              <span>System</span><span>Example</span><span>Units / precision</span>
-            </div>
-            <div class="help-row">
-              <span>Lat / Lon (DD)</span><span><code>40.6892, -74.0445</code></span><span>degrees</span>
-            </div>
-            <div class="help-row">
-              <span>Lat / Lon (DMS)</span><span><code>40°41'21"N 74°02'40"W</code></span><span>deg / min / sec</span>
-            </div>
-            <div class="help-row">
-              <span>ArcGIS XY (UTM)</span><span><code>18N 580736 4504695</code></span><span>metres</span>
-            </div>
-            <div class="help-row">
-              <span>MGRS 6-digit</span><span><code>18T WL 807 046</code></span><span>100 m</span>
-            </div>
-            <div class="help-row">
-              <span>MGRS 8-digit</span><span><code>18T WL 8073 0469</code></span><span>10 m</span>
-            </div>
-            <div class="help-row">
-              <span>MGRS 10-digit</span><span><code>18T WL 80735 04695</code></span><span>1 m</span>
-            </div>
-          </div>
 
           <div class="help-callout">
             <span class="callout-dot warn"></span>
-            <p>MGRS / USNG is defined only between <b>80°S</b> and <b>84°N</b>.
-               Points outside that band will still show lat/lon and XY, but grid
-               references will be unavailable.</p>
+            <p>MGRS / USNG is only defined between <b>80&deg;S</b> and <b>84&deg;N</b>. Outside that band
+               you still get lat/lon and XY, but the grid rows read &ldquo;Out of MGRS range&rdquo;.</p>
           </div>
         </section>
 
+        <!-- ---------------- STEP 3 ---------------- -->
         <section class="help-section">
-          <h3><span class="pill">Tips</span> Little things worth knowing</h3>
+          <h3><span class="pill">Step 3</span> The map, the cursor and the base map</h3>
+          <p>Hover anywhere on the map and the values follow you, both in card 3 and in the
+             <b>Cursor position</b> panel on the map itself. <b>Click</b> to lock a point &mdash; the
+             dashboard, the marker and the popup all follow.</p>
+
+          <figure class="shot">
+            <img src="Assets/guide/card2.jpg" width="462" height="844" loading="lazy" decoding="async"
+                 alt="The Live cursor card showing lat/lon, ArcGIS XY and MGRS values that follow the mouse." />
+            <figcaption><b>Figure 4</b> — card 3, the live cursor. It mirrors the panel in the
+              bottom-right corner of the map.</figcaption>
+          </figure>
+
+          <figure class="shot">
+            <img src="Assets/guide/map.jpg" width="985" height="844" loading="lazy" decoding="async"
+                 alt="The map panel with three numbered deployment pins, two shaded zones, the result marker, zoom buttons, the cursor position panel, scale bar and attribution." />
+            <figcaption><b>Figure 5</b> — the map. Numbered pins are the deployments, shaded polygons
+              are the zones, and the teardrop pin is the map indicator. The picture you get from
+              <b>Download</b> is this view, framed and rendered onto a canvas.</figcaption>
+          </figure>
+
+          <figure class="shot">
+            <img src="Assets/guide/layers.jpg" width="610" height="374" loading="lazy" decoding="async"
+                 alt="The base map menu open, listing Standard, Satellite, Terrain, Humanitarian and Dark." />
+            <figcaption><b>Figure 6</b> — the base-map switcher, top-right of the map. Whatever is
+              selected here is what a download uses when <em>Map type</em> is left on
+              <em>Same as the map on screen</em>.</figcaption>
+          </figure>
+
           <ul class="help-list">
-            <li>Press <kbd>Esc</kbd> or click outside the window to close it.</li>
-            <li>Grid references without a space between digits — like <code>18TWL8073504695</code> — are also accepted.</li>
-            <li>If you paste XY without a zone, the tool will ask you to fill in the UTM zone field.</li>
-            <li>Hover the map first to preview a location, then click to confirm it.</li>
-            <li>Click any value in the <b>Coordinate dashboard</b> or <b>Live cursor</b> card to copy just that field.</li>
-            <li>The marker drops in with a bounce whenever a new point is selected.</li>
-            <li>Drag the dotted grip on a deployment row to set your order of battle — the legend follows it.</li>
-            <li>Use the copy button on a row to clone a unit, then edit the copy into a second element.</li>
-            <li>Reordering works from the keyboard too: focus a row, then <kbd>Alt</kbd>+<kbd>&uarr;</kbd> / <kbd>&darr;</kbd>.</li>
-            <li>Click <b>Manage types</b> beside the Unit type label to add your own unit types — your names, icons and colours.</li>
-            <li>Custom unit types travel inside an exported JSON file, so importing shares the naming too.</li>
+            <li><b>Zoom</b> &mdash; the +/&minus; buttons top-left, the scroll wheel, or a pinch.</li>
+            <li><b>Drag the teardrop marker</b> to fine-tune the position; the dashboard updates on release.</li>
+            <li><b>Scale bar &amp; attribution</b> &mdash; bottom-left, metric and imperial.</li>
           </ul>
         </section>
 
-        <!-- ---------------- STEP 4: DEPLOYMENTS ---------------- -->
+        <!-- ---------------- STEP 4 ---------------- -->
         <section class="help-section">
           <h3><span class="pill">Step 4</span> Deployments</h3>
-          <p>Plot units on the map using one of six tactical unit types, each with its own
-             icon, colour, and full equipment details. Open the card with the <b>Deploy</b>
-             button in the top bar.</p>
+          <p>Open this card with the <b>Deploy</b> button in the top bar. Pick a unit type, fill in
+             whoever you need, and press <b>Place on map</b>.</p>
 
-          <figure class="illus-fig">
-            <svg class="illus" viewBox="0 0 420 280" role="img"
-                 aria-label="The Deployments card: unit type menu, icon menu, colour, live preview strip, commander, troops, vehicles, arms and equipment fields.">
-              <rect class="il-panel" x="6" y="6" width="408" height="268" rx="16"/>
-              <rect class="il-stroke" x="6.5" y="6.5" width="407" height="267" rx="15.5"/>
-
-              <rect class="il-accent" x="24" y="22" width="22" height="22" rx="7"/>
-              <text class="il-badge il-on-accent" x="35" y="37" text-anchor="middle">4</text>
-              <text class="il-cap2" x="56" y="37">DEPLOYMENTS</text>
-
-              <rect class="il-field" x="24" y="54" width="184" height="32" rx="8"/>
-              <text class="il-label" x="34" y="68">UNIT TYPE</text>
-              <text class="il-value" x="34" y="80">Support Platoon</text>
-
-              <rect class="il-field" x="24" y="94" width="184" height="32" rx="8"/>
-              <text class="il-label" x="34" y="108">ICON</text>
-              <text class="il-value" x="34" y="120">Armoured Vehicle</text>
-
-              <rect class="il-field" x="220" y="54" width="196" height="72" rx="8"/>
-              <text class="il-label" x="230" y="68">COLOR</text>
-              <circle class="il-accent" cx="240" cy="86" r="9"/>
-              <text class="il-mono" x="256" y="90">#F59E0B</text>
-
-              <rect class="il-accent-soft" x="24" y="134" width="392" height="46" rx="8"/>
-              <text class="il-label" x="34" y="150">PREVIEW</text>
-              <rect class="il-accent" x="34" y="156" width="20" height="20" rx="5" opacity=".85"/>
-              <text class="il-value" x="64" y="164">Support Platoon · Armoured Vehicle icon</text>
-              <text class="il-value" x="64" y="176">BTR-80 x2 + truck x1</text>
-
-              <rect class="il-field" x="24" y="188" width="184" height="32" rx="8"/>
-              <text class="il-label" x="34" y="202">COMMANDER</text>
-              <text class="il-value" x="34" y="214">Capt. Smith</text>
-
-              <rect class="il-field" x="220" y="188" width="90" height="32" rx="8"/>
-              <text class="il-label" x="230" y="202">TROOPS</text>
-              <text class="il-value" x="230" y="214">24</text>
-
-              <rect class="il-field" x="318" y="188" width="98" height="32" rx="8"/>
-              <text class="il-label" x="328" y="202">VEHICLES</text>
-              <text class="il-value" x="328" y="214">3</text>
-
-              <rect class="il-accent" x="24" y="228" width="184" height="34" rx="9"/>
-              <text class="il-cta il-on-accent" x="116" y="249" text-anchor="middle">Place on map</text>
-              <rect class="il-field" x="216" y="228" width="100" height="34" rx="9"/>
-              <text class="il-muted-text" x="266" y="249" text-anchor="middle">Clear form</text>
-            </svg>
-            <figcaption><b>Figure 5</b> — The Deployments card. Choose a unit type, and the icon
-              menu, colour and live preview update to match it automatically.</figcaption>
+          <figure class="shot">
+            <img src="Assets/guide/deploy.jpg" width="1120" height="656" loading="lazy" decoding="async"
+                 alt="The Deployments card open: unit type, icon, colour, live preview, commander, troops, vehicles, arms and equipment, Place on map, and the list of placed units below." />
+            <figcaption><b>Figure 7</b> — the Deployments card with three units placed. The icon menu,
+              colour and preview update automatically when you change the unit type.</figcaption>
           </figure>
 
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>Unit type &amp; icon</h4>
+              <p>Six built-in types, each locked to its own icon set. Special Task offers three shapes.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Colour</h4>
+              <p>Defaults per type; override it to colour by task rather than by unit.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Details</h4>
+              <p>Commander, troops, vehicles, arms &amp; ammo and special equipment &mdash; all shown in the marker popup and on the printed sheet.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Place on map</h4>
+              <p>Drops the marker at the current map indicator. Markers are draggable and stay in sync.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#8942;&#8942; Reorder</h4>
+              <p>Drag the grip on a row. The order is your order of battle and drives the legend and the printed table. Keyboard: <kbd>Alt</kbd>+<kbd>&uarr;</kbd>/<kbd>&darr;</kbd>.</p>
+            </div>
+            <div class="help-tile">
+              <h4>&#10697; Duplicate</h4>
+              <p>Copies the unit beneath the original so you can edit it into a second element.</p>
+            </div>
+          </div>
+
           <h4 class="help-subhead">The six unit types</h4>
-          <p>Each unit type is locked to its own icon set, so the map stays readable at a glance.</p>
 
           <div class="unit-type-grid">
             <div class="unit-type-card">
@@ -1004,7 +932,7 @@
               </span>
               <div class="unit-type-info">
                 <h4>Company HQ</h4>
-                <p><b>Flag</b> icon · command element and headquarters.</p>
+                <p><b>Flag</b> icon &middot; command element and headquarters.</p>
               </div>
             </div>
 
@@ -1014,7 +942,7 @@
               </span>
               <div class="unit-type-info">
                 <h4>Support Platoon</h4>
-                <p><b>Armoured Vehicle</b> icon · fires, logistics, transport.</p>
+                <p><b>Armoured Vehicle</b> icon &middot; fires, logistics, transport.</p>
               </div>
             </div>
 
@@ -1024,7 +952,7 @@
               </span>
               <div class="unit-type-info">
                 <h4>SIGINT Platoon</h4>
-                <p><b>Antenna / Signal Tower</b> icon · signals &amp; electronic intelligence.</p>
+                <p><b>Antenna / Signal Tower</b> icon &middot; signals &amp; electronic intelligence.</p>
               </div>
             </div>
 
@@ -1034,7 +962,7 @@
               </span>
               <div class="unit-type-info">
                 <h4>ISR Platoon</h4>
-                <p><b>Drone</b> icon · aerial surveillance &amp; reconnaissance.</p>
+                <p><b>Drone</b> icon &middot; aerial surveillance &amp; reconnaissance.</p>
               </div>
             </div>
 
@@ -1044,7 +972,7 @@
               </span>
               <div class="unit-type-info">
                 <h4>HUMINT Platoon</h4>
-                <p><b>Detective</b> icon · human intelligence &amp; liaison.</p>
+                <p><b>Detective</b> icon &middot; human intelligence &amp; liaison.</p>
               </div>
             </div>
 
@@ -1054,7 +982,7 @@
               </span>
               <div class="unit-type-info">
                 <h4>Special Task</h4>
-                <p>Three icons available — pick whichever fits the element you are plotting:</p>
+                <p>Three icons available &mdash; pick whichever fits the element you are plotting:</p>
                 <div class="unit-type-variants">
                   <span class="unit-variant" style="color:#EF4444">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2.6 2.9 5.9 6.5.95-4.7 4.6 1.1 6.5L12 17.5l-5.8 3.05 1.1-6.5-4.7-4.6 6.5-.95z"/></svg>
@@ -1073,244 +1001,283 @@
             </div>
           </div>
 
-          <ul class="help-list">
-            <li><b>Unit type</b> — choose from the six types above. Changing the type resets the icon menu, the colour, and the live preview.</li>
-            <li><b>Icon</b> — only the icons valid for the selected unit type are offered. Five types have a single fixed icon; <em>Special Task</em> offers all three shapes.</li>
-            <li><b>Color</b> — each type has a sensible default (HQ teal, Support amber, SIGINT blue, ISR violet, HUMINT pink, Special Task red). Override it with the picker if you need to — e.g. to colour by task, not by unit.</li>
-            <li><b>Preview</b> — the strip under the icon menu shows exactly what will appear on the map, updating live as you change anything.</li>
-            <li><b>Commander</b> — name or callsign of the unit leader.</li>
-            <li><b>Troops</b> — number of personnel.</li>
-            <li><b>Vehicles</b> — free text: a count like <code>3</code>, or a description like <code>BTR-80 x2 + truck x1</code>.</li>
-            <li><b>Arms &amp; Ammo</b> — weapons and ammunition, e.g. <code>AKM x20, RPG-7 x3</code>.</li>
-            <li><b>Special Equipment</b> — night vision, optics, comms gear, etc.</li>
-          </ul>
+          <h4 class="help-subhead">Your own unit types</h4>
+          <p>Click <b>Manage types</b> next to the Unit type label. Name it, tick one to three icons,
+             pick a colour. Custom types are saved in this browser and travel inside every exported
+             JSON file, so a teammate's names arrive with their plan.</p>
 
-          <p>Click <b>Place on map</b> to drop the marker at the currently selected map location.
-             Markers are draggable — drag to reposition and the coordinates update automatically.
-             Click a marker on the map, or a row in the list, to fly to it and read its full
-             details in a popup.</p>
-
-          <h4 class="help-subhead">Organising the list</h4>
-          <p>Every placed unit appears as a row under the form. The list order is your
-             <b>order of battle</b> — it drives the on-map legend and survives a page reload
-             and an export, so you can sequence units however you like (by echelon, phase of
-             the plan, or whoever is on the left of the map).</p>
-
-          <div class="help-grid">
-            <div class="help-tile">
-              <h4>&#8942;&#8942; Drag to reorder</h4>
-              <p>Grab the dotted grip on the left of any row and drag it up or down.
-                 A coloured line shows whether the unit will land above or below the
-                 row you are hovering. Dragging near the top or bottom edge scrolls
-                 the list automatically.</p>
-            </div>
-            <div class="help-tile">
-              <h4>&#10697; Duplicate</h4>
-              <p>Copies the unit — same type, icon, colour, commander, troops, vehicles,
-                 arms and equipment — and inserts the copy directly beneath the original,
-                 so you can then edit it into a second element. The copy is labelled
-                 <em>&ldquo;name (copy)&rdquo;</em> until you rename it.</p>
-            </div>
-            <div class="help-tile">
-              <h4>&#9003; Remove</h4>
-              <p>Deletes the row and its map marker. There is no undo, so duplicate
-                 anything you might want back.</p>
-            </div>
-            <div class="help-tile">
-              <h4>&#9003;&#xfe0e; Keyboard</h4>
-              <p>Focus a row with <kbd>Tab</kbd>, then use
-                 <kbd>Alt</kbd>+<kbd>&uarr;</kbd> / <kbd>Alt</kbd>+<kbd>&darr;</kbd> to reorder,
-                 and <kbd>Enter</kbd> to fly to the unit on the map.</p>
-            </div>
-          </div>
-
-          <div class="help-callout">
-            <span class="callout-dot"></span>
-            <p>Drag-and-drop needs a mouse, so on a touch screen use the
-               <kbd>Alt</kbd>+arrow keys or the keyboard shortcut instead. Reordering and
-               duplication are saved immediately — there is no separate save step.</p>
-          </div>
-
-          <h4 class="help-subhead">Creating your own unit types</h4>
-          <p>The six types above are built in, but the list is not fixed. Click
-             <b>Manage types</b> next to the Unit type label to add your own — useful when your
-             organisation names things differently, or when you need an element the built-in
-             set does not cover.</p>
-
-          <div class="help-grid">
-            <div class="help-tile">
-              <h4>&#10133; Name</h4>
-              <p>Up to 40 characters. Yours appear in a separate <b>Your types</b> group in the
-                 Unit type menu, below the built-in six.</p>
-            </div>
-            <div class="help-tile">
-              <h4>Icons</h4>
-              <p>Tick <b>one to three</b> from the same eight shapes the built-in types use.
-                 Several icons means the type can be drawn whichever way suits the element.</p>
-            </div>
-            <div class="help-tile">
-              <h4>&#9683; Colour</h4>
-              <p>Pick any colour. It becomes the type's default marker colour and the colour of
-                 its chip in the manager — though you can still override it per deployment.</p>
-            </div>
-            <div class="help-tile">
-              <h4>&#9998; Edit &amp; delete</h4>
-              <p>Edit any time. Deleting a type that is still in use asks first, then moves those
-                 deployments to <em>Company HQ</em> — their commander, troops, vehicles, arms and
-                 equipment are all kept.</p>
-            </div>
-          </div>
-
-          <div class="help-callout">
-            <span class="callout-dot"></span>
-            <p>Custom types are stored in this browser and are written into the exported JSON file,
-               so importing a teammate's file brings their unit types with it — nobody has to
-               recreate them by hand.</p>
-          </div>
-
-          <div class="help-callout">
-            <span class="callout-dot"></span>
-            <p>All deployments are saved automatically to this browser. Use the <b>Save &amp; Share</b>
-               card to export them as a JSON file, or to import a teammate's markings and compare.</p>
-          </div>
+          <figure class="shot">
+            <img src="Assets/guide/types.jpg" width="940" height="860" loading="lazy" decoding="async"
+                 alt="The Unit types manager: the six built-in types, the list of your own types, and a form to create a new one with a name, icon picker and colour." />
+            <figcaption><b>Figure 8</b> — the unit-type manager. Deleting a type that is still in use
+              asks first and moves those deployments to <em>Company HQ</em>, keeping all their details.</figcaption>
+          </figure>
         </section>
 
-        <!-- ---------------- STEP 5: ZONES ---------------- -->
+        <!-- ---------------- STEP 5 ---------------- -->
         <section class="help-section">
           <h3><span class="pill">Step 5</span> Zones</h3>
-          <p>Draw coloured polygon zones on the map — tactical sectors, perimeters, AO boundaries — with a name and calculated area.</p>
+          <p>Open the Zones card with the <b>Zones</b> button in the top bar, choose a colour and a
+             name, then click <b>Start drawing</b> and click points on the map to build a polygon.
+             Double-click or press <b>Stop drawing</b> to finish.</p>
 
-          <figure class="illus-fig">
-            <svg class="illus" viewBox="0 0 420 280" role="img"
-                 aria-label="The Zones card with colour picker, zone name, opacity slider, and drawing controls.">
-              <rect class="il-panel" x="6" y="6" width="408" height="268" rx="16"/>
-              <rect class="il-stroke" x="6.5" y="6.5" width="407" height="267" rx="15.5"/>
-
-              <rect class="il-accent" x="24" y="22" width="22" height="22" rx="7"/>
-              <text class="il-badge il-on-accent" x="35" y="37" text-anchor="middle">5</text>
-              <text class="il-cap2" x="56" y="37">ZONES</text>
-
-              <rect class="il-field" x="24" y="54" width="184" height="32" rx="8"/>
-              <text class="il-muted-text" x="34" y="74">Zone color</text>
-              <circle class="il-accent" cx="52" cy="70" r="8"/>
-              <text class="il-value" x="64" y="74">#FF6B6B</text>
-
-              <rect class="il-field" x="24" y="94" width="184" height="32" rx="8"/>
-              <text class="il-muted-text" x="34" y="114">Zone name</text>
-              <text class="il-value" x="36" y="110">Alpha Sector</text>
-
-              <rect class="il-field" x="24" y="134" width="184" height="50" rx="8"/>
-              <text class="il-label" x="34" y="150">Fill opacity</text>
-              <line class="il-scale" x1="34" y1="170" x2="180" y2="170"/>
-              <circle class="il-accent" cx="120" cy="170" r="5"/>
-              <text class="il-muted-text" x="150" y="174">0.35</text>
-
-              <rect class="il-accent" x="224" y="54" width="184" height="36" rx="10"/>
-              <text class="il-cta il-on-accent" x="316" y="76" text-anchor="middle">&#9671; Start drawing</text>
-
-              <!-- map preview of polygon -->
-              <rect class="il-accent-soft" x="224" y="98" width="184" height="164" rx="10"/>
-              <text class="il-label" x="234" y="116">MAP PREVIEW</text>
-              <polygon class="il-accent" points="240,140 300,130 350,170 320,220 240,200 230,170" opacity=".35" stroke="#FF6B6B" stroke-width="2" fill="#FF6B6B"/>
-              <text class="il-value" x="316" y="260" text-anchor="middle">Alpha Sector</text>
-              <text class="il-muted-text" x="316" y="276" text-anchor="middle">42,500 m&#xb2;</text>
-            </svg>
-            <figcaption><b>Figure 6</b> — The Zones card. Choose a colour and name, then click Start drawing and click points on the map to build the polygon.</figcaption>
+          <figure class="shot">
+            <img src="Assets/guide/zones.jpg" width="1120" height="656" loading="lazy" decoding="async"
+                 alt="The Zones card open with a colour picker, name field, opacity slider and drawing buttons, alongside a map showing two shaded polygons and the list of zones with their areas." />
+            <figcaption><b>Figure 9</b> — the Zones card. Each zone carries a name, colour and fill
+              opacity, and its area in m&sup2; or km&sup2; is calculated as you draw.</figcaption>
           </figure>
 
           <ul class="help-list">
-            <li><b>Zone color</b> — pick any colour; the fill and outline use this colour.</li>
-            <li><b>Zone name</b> — a label like <em>Alpha Sector</em> or <em>Perimiter A</em>. If left blank, a default name is generated.</li>
-            <li><b>Fill opacity</b> — how transparent the zone fill is (0.1 to 0.8).</li>
-            <li><b>Start drawing</b> — click this button, then click on the map to add vertices. A dashed preview line follows your cursor.</li>
-            <li><b>Finish zone</b> — click this button (or the Stop drawing button) to complete the polygon. You need at least 3 vertices.</li>
-            <li><b>Stop drawing</b> — cancel the current drawing without saving.</li>
-            <li><b>Clear all zones</b> — remove every zone from the map.</li>
+            <li><b>Fill opacity</b> &mdash; 0.1 to 0.8, so overlapping zones stay readable.</li>
+            <li><b>Double-click zoom is disabled</b> while drawing, so a stray double-click does not move the map.</li>
+            <li><b>Click a zone in the list</b> to fly to its centre; click the polygon for its area.</li>
+            <li><b>Clear all zones</b> removes every polygon &mdash; there is no undo.</li>
           </ul>
-
-          <p>While drawing, double-click zoom is <b>disabled</b> so you can place vertices precisely. The zone's area (in m² or km²) is calculated automatically and shown in the popup and the zone list. Click a zone in the list to fly to its centre.</p>
-
-          <div class="help-callout">
-            <span class="callout-dot"></span>
-            <p>Zones are saved alongside deployments in localStorage, and travel with your copied and exported JSON data.</p>
-          </div>
         </section>
 
-        <!-- ---------------- STEP 6: SAVE & SHARE ---------------- -->
+        <!-- ---------------- STEP 6 ---------------- -->
         <section class="help-section">
-          <h3><span class="pill">Step 6</span> Save &amp; Share</h3>
-          <p>Persist your markings locally and exchange them with others via JSON files.</p>
+          <h3><span class="pill">Step 6</span> Download the plan</h3>
+          <p>
+            Press <b>Download</b> in the top bar (or the <b>Download plan</b> button in card 6).
+            Choose a format, set how the map should look, tick what goes in, and press the button at
+            the bottom of the dialog. Nothing is uploaded &mdash; the file is built in your browser.
+          </p>
+
+          <figure class="shot">
+            <img src="Assets/guide/download.jpg" width="940" height="860" loading="lazy" decoding="async"
+                 alt="The Download dialog: JSON, PDF and PNG choices, a Map appearance group with Map type, North facing, Scale bar, Framing, plan title and date, and a list of items to include." />
+            <figcaption><b>Figure 10</b> — the Download dialog with <b>PDF map sheet</b> selected. The
+              Map appearance group appears as soon as you pick PDF or PNG.</figcaption>
+          </figure>
+
+          <div class="help-table">
+            <div class="help-row help-row-head">
+              <span>Option</span><span>Values</span><span>What it changes</span>
+            </div>
+            <div class="help-row">
+              <span>Format</span>
+              <span>JSON &middot; PDF &middot; PNG</span>
+              <span>Working data file, a printable sheet, or the picture alone.</span>
+            </div>
+            <div class="help-row">
+              <span>Map type</span>
+              <span>Same as the map &middot; Standard &middot; Satellite &middot; Terrain &middot; Humanitarian &middot; Dark</span>
+              <span>The base map drawn into the file. The map on screen does not change.</span>
+            </div>
+            <div class="help-row">
+              <span>North facing</span>
+              <span>North up &middot; Rotate to fit</span>
+              <span>North up keeps it upright; Rotate to fit spins the plan onto its longest axis and turns the north arrow with it.</span>
+            </div>
+            <div class="help-row">
+              <span>Map scale</span>
+              <span>Auto &middot; 1:5 000 &middot; 1:10 000 &middot; 1:25 000 &middot; 1:50 000 &middot; 1:100 000 and larger</span>
+              <span>A representative fraction measured against the A4 sheet &mdash; 1 cm on the page is X/100 m on the ground. Auto frames everything and prints the scale it came out at; a fixed scale can crop a tight plan, and the caption says so.</span>
+            </div>
+            <div class="help-row">
+              <span>Scale bar</span>
+              <span>Metric + imperial &middot; Metric &middot; Imperial &middot; Hidden</span>
+              <span>Units and visibility of the bar in the bottom-left of the sheet.</span>
+            </div>
+            <div class="help-row">
+              <span>Framing</span>
+              <span>All &middot; Current view &middot; Deployments &middot; Zones &middot; Indicator</span>
+              <span>What the picture frames. It sizes itself, so you never have to zoom first.</span>
+            </div>
+            <div class="help-row">
+              <span>Include</span>
+              <span>Map &middot; Scale bar &middot; North arrow &middot; Deployments &middot; Zones</span>
+              <span>Ticks out what the PDF or picture carries. A JSON file always carries everything.</span>
+            </div>
+            <div class="help-row">
+              <span>Title &amp; date</span>
+              <span>Free text, date</span>
+              <span>Printed in the PDF header and on the map page.</span>
+            </div>
+          </div>
 
           <div class="help-grid">
             <div class="help-tile">
-              <h4>&#128190; Save Op Data</h4>
-              <p>One dialog for taking the plan away. Pick <b>JSON file</b> to download the complete session for a teammate, or <b>PDF map sheet</b> to open the print dialog on a single landscape sheet. For the PDF you tick what goes on it &mdash; map, scale bar, north arrow, deployments and zones. Unticking everything is refused rather than printing a blank page.</p>
+              <h4>&#128229; JSON file</h4>
+              <p><code>gis-helper-data-YYYY-MM-DD.json</code> with every deployment, zone, the map
+                 indicator and your custom unit types. This is the only format you can <b>Upload</b>
+                 again, so use it to keep working or to hand the plan to someone else.</p>
             </div>
             <div class="help-tile">
-              <h4>&#128190; Save to browser</h4>
-              <p>Stores the map indicator, all deployments, zones and your custom unit types in this browser's localStorage. They reappear automatically when you return.</p>
+              <h4>&#128424; PDF map sheet</h4>
+              <p>A real <code>.pdf</code>, written for you: page one is the map, page two onwards are
+                 the coordinate facts and the deployment and zone tables. Open it in anything.</p>
             </div>
             <div class="help-tile">
-              <h4>&#128194; Load from browser</h4>
-              <p>Reloads the last saved session from localStorage, including the map indicator position.</p>
+              <h4>&#128207; Scale</h4>
+              <p><b>Auto</b> frames the whole plan and states the scale it produced. A fixed
+                 <b>1:X</b> is measured against the A4 sheet &mdash; 1&nbsp;cm on the page is
+                 X/100&nbsp;m on the ground &mdash; and the picture then shows whatever fits at that
+                 scale, cropping a tight plan if need be.</p>
             </div>
             <div class="help-tile">
-              <h4>&#128203; Copy all data</h4>
-              <p>Puts the complete session JSON on your clipboard — the same payload the exported file contains. Paste it anywhere.</p>
-            </div>
-            <div class="help-tile">
-              <h4>&#128230; Export JSON file</h4>
-              <p>Downloads a <code>gis-helper-data-YYYY-MM-DD.json</code> file with everything — map indicator, deployments, zones, colours, details, areas.</p>
-            </div>
-            <div class="help-tile">
-              <h4>&#128229; Import JSON file</h4>
-              <p>Load a saved file from disk. You can also <b>drag and drop</b> a <code>.json</code> file anywhere onto the page.</p>
+              <h4>&#128444; PNG image</h4>
+              <p>The same 1600&times;1000 picture with no tables &mdash; for a briefing slide or a
+                 message.</p>
             </div>
           </div>
 
-          <p>Exported files can be emailed, shared on a drive, or posted online — anyone with the file can import it and see the same map. There is no server and no account: the file <em>is</em> the data, so a file you export on one machine opens identically on another. Files from older versions are also accepted (missing fields are filled in safely).</p>
-
-          <div class="help-callout">
-            <span class="callout-dot warn"></span>
-            <p>If the map already has data, importing asks whether to <b>merge</b> (add alongside what is there, keeping your current map indicator) or <b>replace</b> (clear everything and load the file exactly, including its map indicator). Cancelling leaves the map untouched. Your custom unit types are always merged in, never deleted.</p>
-          </div>
-        </section>
-
-        <!-- ---------------- STEP 7: PRINT & EXPORT ---------------- -->
-        <section class="help-section">
-          <h3><span class="pill">Step 7</span> Print &amp; image export</h3>
-          <p>Turn the current plan into something you can hand over on paper or drop into a message.</p>
-
-          <div class="help-grid">
-            <div class="help-tile">
-              <h4>&#128424; Print report</h4>
-              <p>Opens your browser&rsquo;s print dialog with a one-page plan sheet: the map, then tables of every deployment and zone. Choose <b>Save as PDF</b> as the destination to get a PDF instead. This is the shortcut to the <b>Save Op Data</b> dialog&rsquo;s PDF option, and it honours the same include ticks.</p>
-            </div>
-            <div class="help-tile">
-              <h4>&#128444; Export PNG</h4>
-              <p>Downloads the same picture as a <code>gis-helper-plan-YYYY-MM-DD.png</code> — 1600&times;1000, ready to paste into a briefing or a report.</p>
-            </div>
-          </div>
-
-          <p>The picture frames every deployment, every zone and the map indicator, then numbers each deployment pin so it matches the row in the report table. It also carries a scale bar, a north arrow, and the base map&rsquo;s attribution — which the OpenStreetMap, CARTO and OpenTopoMap licences require to stay visible.</p>
+          <figure class="shot">
+            <img src="Assets/guide/sheet.jpg" width="1120" height="723" loading="lazy" decoding="async"
+                 alt="The generated plan picture: the framed map with numbered deployment pins, tagged zones, the map indicator, a scale bar, a north arrow and the base map attribution." />
+            <figcaption><b>Figure 11</b> — what the map page of the PDF (and the PNG) looks like.
+              Numbered pins line up with the deployment table on the page after, and the scale figure
+              sits under the scale bar.</figcaption>
+          </figure>
 
           <div class="help-callout">
             <span class="callout-dot"></span>
-            <p>No new dependencies and no server are involved: the image is drawn on a plain <code>&lt;canvas&gt;</code> in your browser. If the tile server refuses to serve tiles to a canvas (a browser security restriction that varies by provider), the export quietly falls back to a <b>schematic plan</b> — a coordinate grid with the same zones, pins and labels, just without the street imagery. You will be told which one you got.</p>
+            <p>If a tile server refuses to serve tiles to the canvas, the picture quietly falls back to
+               a <b>schematic plan</b> &mdash; a labelled coordinate grid with the same zones, pins and
+               labels, minus the street imagery &mdash; and the caption tells you which you got. The map
+               on screen is never affected.</p>
           </div>
 
-          <h4 style="margin-top:18px;">Export options</h4>
-          <p>These sit above the two export buttons and are remembered in this browser.</p>
+          <figure class="shot">
+            <img src="Assets/guide/data.jpg" width="470" height="844" loading="lazy" decoding="async"
+                 alt="Card 6 in the sidebar: Download plan, Save to browser, Load from browser, Copy all data, Export JSON file, Upload JSON file, and the Export options group." />
+            <figcaption><b>Figure 13</b> &mdash; card 6. <b>Download plan</b> opens the dialog above;
+              <b>Upload JSON file</b> is the same action as the <b>Upload</b> button in the top bar.</figcaption>
+          </figure>
+
+          <p>Card 6 also keeps the browser-level tools: <b>Save to browser</b> and
+             <b>Load from browser</b> (localStorage), <b>Copy all data</b> (the whole session JSON on
+             your clipboard), and <b>Print report</b>, which opens the browser's print dialog on the
+             same one-page sheet if you would rather print it yourself.</p>
+        </section>
+
+        <!-- ---------------- STEP 7 ---------------- -->
+        <section class="help-section">
+          <h3><span class="pill">Step 7</span> Upload a plan</h3>
+          <p>
+            Press <b>Upload</b> in the top bar and pick a <code>.json</code> file saved from GIS
+            Helper &mdash; yours or a teammate's &mdash; and carry on working from it. You can also
+            <b>drag and drop</b> a <code>.json</code> file anywhere onto the page.
+          </p>
+
+          <figure class="shot">
+            <img src="Assets/guide/upload.jpg" width="940" height="860" loading="lazy" decoding="async"
+                 alt="The import dialog showing the file name, a summary of three deployments, two zones and one map indicator, and two choices: merge into current data or replace everything." />
+            <figcaption><b>Figure 12</b> — if the map already has data you are asked how to apply the
+              file. <b>Merge</b> adds to what is there; <b>Replace</b> clears the map first.</figcaption>
+          </figure>
+
+          <div class="help-grid">
+            <div class="help-tile">
+              <h4>Merge into current data</h4>
+              <p>The file's deployments and zones are added alongside yours. Your map indicator and
+                 existing markings stay exactly where they are.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Replace everything</h4>
+              <p>Clears the map, then loads exactly what the file holds, including its map indicator.
+                 There is no undo &mdash; export first if you might want the old map back.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Custom unit types</h4>
+              <p>Always merged in, never deleted. Importing a teammate's file brings their unit names,
+                 icons and colours with it.</p>
+            </div>
+            <div class="help-tile">
+              <h4>Older files</h4>
+              <p>Files from earlier versions still import. Missing fields are filled in safely, unknown
+                 unit types fall back to Company HQ, and legacy icon names are mapped to their modern
+                 equivalents.</p>
+            </div>
+          </div>
+
+          <div class="help-callout">
+            <span class="callout-dot"></span>
+            <p><b>Round trip:</b> Download &rarr; JSON, edit or move the file, Upload &rarr; Replace.
+               The map you get back is the map you left, on any machine, with no account in between.</p>
+          </div>
+        </section>
+
+        <!-- ---------------- REFERENCE ---------------- -->
+        <section class="help-section">
+          <h3><span class="pill">Reference</span> Format cheat sheet</h3>
+
+          <div class="help-table">
+            <div class="help-row help-row-head">
+              <span>System</span><span>Example</span><span>Units / precision</span>
+            </div>
+            <div class="help-row">
+              <span>Lat / Lon (DD)</span><span><code>40.6892, -74.0445</code></span><span>degrees</span>
+            </div>
+            <div class="help-row">
+              <span>Lat / Lon (DMS)</span><span><code>40&deg;41'21&quot;N 74&deg;02'40&quot;W</code></span><span>deg / min / sec</span>
+            </div>
+            <div class="help-row">
+              <span>ArcGIS XY (UTM)</span><span><code>18N 580736 4504695</code></span><span>metres</span>
+            </div>
+            <div class="help-row">
+              <span>MGRS 6-digit</span><span><code>18T WL 807 046</code></span><span>100 m</span>
+            </div>
+            <div class="help-row">
+              <span>MGRS 8-digit</span><span><code>18T WL 8073 0469</code></span><span>10 m</span>
+            </div>
+            <div class="help-row">
+              <span>MGRS 10-digit</span><span><code>18T WL 80735 04695</code></span><span>1 m</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="help-section">
+          <h3><span class="pill">Tips</span> Little things worth knowing</h3>
           <ul class="help-list">
-            <li><b>Frame</b> — what the picture frames: everything, whatever the map is currently showing, deployments only, zones only, or just the map indicator. If you pick a preset that has nothing in it, you are told what is missing rather than given a blank sheet.</li>
-            <li><b>Scale bar</b> — metric, imperial, both, or hidden. Imperial uses feet and miles.</li>
-            <li><b>Rotate to fit</b> — off means north-up, which is also the default. Turn it on and the plan is spun onto its longest axis, so a long or diagonal plan fills the frame instead of leaving empty corners. The north arrow turns with it and the caption states the applied angle. A plan that already runs along an axis is left alone.</li>
-            <li><b>Plan title</b> and <b>Plan date</b> — optional. They print in the report header, so you can label a sheet with an exercise name or an operation date. They are not burned into the PNG.</li>
+            <li>Click any value in the dashboard or the live-cursor card to copy just that field.</li>
+            <li>Hover the map first to preview a position, then click to confirm it.</li>
+            <li>Drag a deployment marker and its coordinates, details and table row all follow.</li>
+            <li>Drag the dotted grip on a deployment row to set your order of battle &mdash; the legend follows it.</li>
+            <li>Reordering works from the keyboard too: focus a row, then <kbd>Alt</kbd>+<kbd>&uarr;</kbd> / <kbd>&darr;</kbd>, <kbd>Enter</kbd> to fly to it.</li>
+            <li>Press <kbd>Esc</kbd> to close any dialog, or click outside it.</li>
+            <li>Everything is saved to this browser as you work. The status line at the bottom of card 6 tells you what is stored.</li>
           </ul>
+        </section>
 
-          <div class="help-callout">
-            <span class="callout-dot"></span>
-            <p>Plans of up to about sixteen rows of data stay on a single sheet: the tables tighten up and the map gives up the space they need. Beyond that the sheet runs onto a second page rather than shrinking the map until it is unreadable.</p>
+        <section class="help-section">
+          <h3><span class="pill">Fix it</span> When something does not look right</h3>
+          <div class="help-table">
+            <div class="help-row help-row-head">
+              <span>Symptom</span><span>Cause</span><span>Fix</span>
+            </div>
+            <div class="help-row">
+              <span>&ldquo;Nothing to export&rdquo;</span>
+              <span>No deployment, zone or map indicator yet.</span>
+              <span>Search a location or place something first. For a blank preset, change <b>Framing</b>.</span>
+            </div>
+            <div class="help-row">
+              <span>&ldquo;Out of MGRS range&rdquo;</span>
+              <span>The point is outside 80&deg;S&ndash;84&deg;N.</span>
+              <span>Nothing to fix &mdash; lat/lon and XY are still valid there.</span>
+            </div>
+            <div class="help-row">
+              <span>&ldquo;Tick at least one item&rdquo;</span>
+              <span>Every Include box is unticked.</span>
+              <span>Tick Map, Scale bar, North arrow, Deployments or Zones.</span>
+            </div>
+            <div class="help-row">
+              <span>Export looks like a grid</span>
+              <span>The tile server blocked canvas reads.</span>
+              <span>Switch <b>Map type</b>, or retry on a different network. The schematic plan is still to scale.</span>
+            </div>
+            <div class="help-row">
+              <span>Upload says &ldquo;no data&rdquo;</span>
+              <span>The file is not a GIS Helper export.</span>
+              <span>Use the file produced by <b>Download &rarr; JSON</b>.</span>
+            </div>
+            <div class="help-row">
+              <span>Copy all data is blocked</span>
+              <span>The browser blocks the clipboard on <code>file://</code>.</span>
+              <span>Serve the folder over <code>http://</code>, or just download the JSON file.</span>
+            </div>
           </div>
         </section>
 
@@ -1565,8 +1532,8 @@
           </svg>
         </div>
         <div>
-          <h2 id="saveop-title">Save Op Data</h2>
-          <p>Write the whole plan out as a JSON file, or print it as a PDF map sheet.</p>
+          <h2 id="saveop-title">Download the plan</h2>
+          <p>Take the whole operational picture away &mdash; data file, PDF sheet or PNG image.</p>
         </div>
       </div>
       <button class="modal-close" id="saveop-close" aria-label="Close">
@@ -1582,17 +1549,108 @@
 
       <div class="saveop-format" role="radiogroup" aria-label="Output format">
         <button class="import-option is-selected" id="saveop-fmt-json" role="radio" aria-checked="true">
-          <span class="import-option-title">JSON file</span>
-          <span class="import-option-desc">Downloads <code>gis-helper-data-YYYY-MM-DD.json</code> with every deployment, zone, the map indicator and your custom unit types. Re-importable by anyone.</span>
+          <span class="import-option-title">JSON file <em class="fmt-tag">&mdash; the working data</em></span>
+          <span class="import-option-desc">Downloads <code>gis-helper-data-YYYY-MM-DD.json</code> with every deployment, zone, the map indicator and your custom unit types. This is the only format you can <b>Upload</b> again to keep working.</span>
         </button>
         <button class="import-option" id="saveop-fmt-pdf" role="radio" aria-checked="false">
-          <span class="import-option-title">PDF map sheet</span>
-          <span class="import-option-desc">Opens the print dialog on a single landscape sheet with the map, scale bar, north arrow and data tables. Choose &ldquo;Save as PDF&rdquo; as the destination.</span>
+          <span class="import-option-title">PDF map sheet <em class="fmt-tag">&mdash; for briefing &amp; printing</em></span>
+          <span class="import-option-desc">Builds a real <code>.pdf</code> file on the spot &mdash; the map page in your chosen map type and orientation, then a page of deployment and zone tables. Nothing to print, no dialog to hunt through.</span>
+        </button>
+        <button class="import-option" id="saveop-fmt-png" role="radio" aria-checked="false">
+          <span class="import-option-title">PNG image <em class="fmt-tag">&mdash; the map picture only</em></span>
+          <span class="import-option-desc">Downloads the 1600&times;1000 plan picture &mdash; same map type, orientation, framing, scale bar and north arrow, with no tables.</span>
         </button>
       </div>
 
-      <div class="saveop-include" id="saveop-include">
-        <div class="saveop-include-head">Include in the PDF</div>
+      <div class="saveop-opts is-hidden" id="saveop-map-opts">
+        <div class="saveop-include-head">Map appearance</div>
+
+        <div class="saveop-grid">
+          <div>
+            <label class="lbl" for="saveop-maptype">Map type</label>
+            <select id="saveop-maptype" class="input" data-pref="mapType">
+              <option value="screen">Same as the map on screen</option>
+              <option value="standard">Standard (OSM)</option>
+              <option value="satellite">Satellite</option>
+              <option value="terrain">Terrain</option>
+              <option value="humanitarian">Humanitarian</option>
+              <option value="dark">Dark (CARTO)</option>
+            </select>
+          </div>
+          <div>
+            <label class="lbl" for="saveop-orientation">North facing</label>
+            <select id="saveop-orientation" class="input" data-pref="orientation">
+              <option value="north">North up</option>
+              <option value="fit">Rotate to fit</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="saveop-grid">
+          <div>
+            <label class="lbl" for="saveop-scale">Map scale</label>
+            <select id="saveop-scale" class="input" data-pref="scale">
+              <option value="auto">Auto &mdash; fit the whole plan</option>
+              <option value="5000">1:5 000</option>
+              <option value="10000">1:10 000</option>
+              <option value="25000">1:25 000</option>
+              <option value="50000">1:50 000</option>
+              <option value="100000">1:100 000</option>
+              <option value="250000">1:250 000</option>
+              <option value="500000">1:500 000</option>
+              <option value="1000000">1:1 000 000</option>
+              <option value="2000000">1:2 000 000</option>
+              <option value="5000000">1:5 000 000</option>
+              <option value="10000000">1:10 000 000</option>
+            </select>
+          </div>
+          <div>
+            <label class="lbl" for="saveop-scale-units">Scale bar</label>
+            <select id="saveop-scale-units" class="input" data-pref="scaleUnits">
+              <option value="both">Metric + imperial</option>
+              <option value="metric">Metric only</option>
+              <option value="imperial">Imperial only</option>
+              <option value="none">Hidden</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="saveop-grid">
+          <div>
+            <label class="lbl" for="saveop-frame">Framing</label>
+            <select id="saveop-frame" class="input" data-pref="frame">
+              <option value="all">All deployments, zones &amp; indicator</option>
+              <option value="view">Whatever the map is showing</option>
+              <option value="deployments">Deployments only</option>
+              <option value="zones">Zones only</option>
+              <option value="indicator">Map indicator only</option>
+            </select>
+          </div>
+          <div>
+            <label class="lbl" for="saveop-date-field">Plan date <em>(optional)</em></label>
+            <input id="saveop-date-field" class="input" type="date" data-pref="date" />
+          </div>
+        </div>
+
+        <div class="saveop-grid saveop-grid-single">
+          <div>
+            <label class="lbl" for="saveop-title-field">Plan title <em>(optional)</em></label>
+            <input id="saveop-title-field" class="input" type="text" maxlength="60" placeholder="e.g. Exercise Ironclad" data-pref="title" />
+          </div>
+        </div>
+
+        <p class="note">Map type defaults to whichever base map the live map is showing. Choosing a
+          different one for the download does <b>not</b> change the map on screen. <b>North up</b> keeps
+          the plan upright; <b>Rotate to fit</b> spins it onto its longest axis so a long or diagonal
+          plan fills the frame, and the north arrow turns with it.</p>
+        <p class="note"><b>Map scale</b> is measured against the A4 landscape sheet the PDF is laid out
+          on: at 1:25 000, one centimetre on the sheet is 250 m on the ground. <b>Auto</b> frames the
+          whole plan and prints the scale it came out at; a fixed scale always wins, which on a tight
+          plan means the picture crops it &mdash; the caption tells you when that happens.</p>
+      </div>
+
+      <div class="saveop-include is-hidden" id="saveop-include">
+        <div class="saveop-include-head">Include in the download</div>
 
         <label class="check-row" for="saveop-map">
           <input type="checkbox" id="saveop-map" checked />
@@ -1601,7 +1659,7 @@
 
         <label class="check-row" for="saveop-scale">
           <input type="checkbox" id="saveop-scale" checked />
-          <span>Scale bar <em>&mdash; follows the Scale bar option above</em></span>
+          <span>Scale bar <em>&mdash; uses the units picked above</em></span>
         </label>
 
         <label class="check-row" for="saveop-north">
@@ -1609,25 +1667,25 @@
           <span>North arrow <em>&mdash; rotates with the plan when Rotate to fit is on</em></span>
         </label>
 
-        <label class="check-row" for="saveop-deployments">
+        <label class="check-row is-table-only" for="saveop-deployments">
           <input type="checkbox" id="saveop-deployments" checked />
           <span>Deployments <em>&mdash; the full table of units, strengths and grid references</em></span>
         </label>
 
-        <label class="check-row" for="saveop-zones">
+        <label class="check-row is-table-only" for="saveop-zones">
           <input type="checkbox" id="saveop-zones" checked />
           <span>Zones <em>&mdash; name, area, vertex count and grid reference</em></span>
         </label>
 
-        <p class="note">A JSON save always carries everything, regardless of these ticks &mdash;
+        <p class="note">A JSON download always carries everything, regardless of these ticks &mdash;
           the file is meant to be re-imported losslessly.</p>
       </div>
     </div>
 
     <footer class="modal-footer">
-      <span class="modal-footer-note">Saved locally in your browser. Nothing is uploaded.</span>
+      <span class="modal-footer-note">Built in your browser. Nothing is uploaded anywhere.</span>
       <button class="btn btn-ghost modal-cta" id="saveop-cancel-btn">Cancel</button>
-      <button class="btn btn-primary modal-cta" id="saveop-go-btn">Save as JSON</button>
+      <button class="btn btn-primary modal-cta" id="saveop-go-btn">Download JSON</button>
     </footer>
   </div>
 </div>
