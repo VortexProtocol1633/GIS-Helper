@@ -16,6 +16,9 @@
 
   --blur: blur(22px) saturate(180%);
   --blur-strong: blur(34px) saturate(200%);
+
+  /* Geolocation blue is fixed across themes so it always reads as "you" */
+  --geo: #1a73e8;
 }
 
 /* ============================================================
@@ -766,6 +769,78 @@ select.input {
   box-shadow: 0 12px 26px -12px var(--accent-glow), var(--inset-hi);
 }
 .layer-toggle svg { width: 21px; height: 21px; }
+
+/* ---- My location: locate button + follow toggle ---- */
+.locate-ctrl {
+  position: absolute;
+  top: 70px;
+  right: 14px;
+  z-index: 620;
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+.locate-btn { position: relative; }
+.locate-btn.active {
+  border-color: var(--geo);
+  color: var(--geo);
+  box-shadow: 0 12px 26px -12px rgba(26, 115, 232, .55), var(--inset-hi);
+}
+.locate-btn-label {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  font-family: var(--font);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--text-2);
+  background: var(--glass-strong);
+  backdrop-filter: var(--blur-strong);
+  -webkit-backdrop-filter: var(--blur-strong);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 4px 9px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+.locate-ctrl:hover .locate-btn-label,
+.locate-btn:focus-visible + .locate-btn-label,
+.locate-btn.active .locate-btn-label { opacity: 1; }
+
+/* Spinner shown only while a locate request is in flight */
+.locate-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  opacity: 0;
+  pointer-events: none;
+}
+.locate-btn.busy .locate-spinner { opacity: 1; animation: locate-spin .7s linear infinite; }
+.locate-btn.busy svg { opacity: 0; }
+@keyframes locate-spin { to { transform: rotate(360deg); } }
+
+/* Accuracy halo drawn under the pin while the user location is active */
+.geo-accuracy {
+  animation: geo-pulse 2.4s ease-out infinite;
+}
+@keyframes geo-pulse {
+  0%   { stroke-opacity: .55; fill-opacity: .16; }
+  50%  { stroke-opacity: .30; fill-opacity: .08; }
+  100% { stroke-opacity: .55; fill-opacity: .16; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .geo-accuracy { animation: none; }
+  .locate-btn.busy .locate-spinner { animation-duration: 1.6s; }
+}
 
 .layer-menu {
   position: absolute;
@@ -2563,6 +2638,8 @@ kbd {
 
   .map-hud { min-width: 220px; right: 10px; bottom: 10px; }
   .layer-ctrl { top: 10px; right: 10px; }
+  .locate-ctrl { top: 66px; right: 10px; }
+  .locate-btn-label { display: none; }
 
   .help-grid { grid-template-columns: 1fr; }
   .theme-grid { grid-template-columns: 1fr; }
@@ -3140,14 +3217,30 @@ kbd {
   flex-direction: column;
   gap: 9px;
 }
+/* The link is what makes a capture clickable at full size */
+.shot-link {
+  display: block;
+  border-radius: var(--radius-sm);
+  line-height: 0;
+}
 .shot img {
   display: block;
   width: 100%;
+  /* `auto` + `contain` means a capture can never be stretched, squashed or
+     cropped, whatever the intrinsic size of the file turns out to be. */
   height: auto;
+  max-width: 100%;
+  object-fit: contain;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   box-shadow: 0 22px 44px -26px rgba(0, 0, 0, 0.9);
   background: var(--glass-strong);
+}
+.shot-link:hover img { border-color: var(--border-hi); }
+.shot-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
 }
 .shot figcaption {
   font-size: 12px;

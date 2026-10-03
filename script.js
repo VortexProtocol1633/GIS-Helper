@@ -570,6 +570,142 @@
   }
 
   /* ==========================================================
+     9b. MY LOCATION
+     ----------------------------------------------------------
+     The locate button moves the tactical pin to the user and lets the
+     dashboard/grid refs follow it. "Follow" additionally keeps a
+     watchPosition running so the pin keeps up as the user walks or
+     drives, re-centring the map whenever the position drifts away.
+     ========================================================== */
+  const locateBtn = document.getElementById('locate-btn');
+  const followBtn = document.getElementById('follow-btn');
+
+  let geoWatch = null;          // watchPosition handle while following
+  let geoBusy = false;          // a request is already in flight
+  let geoCircle = null;         // accuracy halo
+  let following = false;        // follow mode latched on
+
+  const GEO_OPTS = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 };
+
+  /* Some browsers expose a `geolocation` property with no methods at all, so
+     check for the function we actually call rather than the property alone. */
+  function geoSupported() {
+    return !!(navigator.geolocation &&
+              typeof navigator.geolocation.getCurrentPosition === 'function');
+  }
+
+  function setLocateBusy(on) {
+    geoBusy = on;
+    locateBtn.classList.toggle('busy', on);
+    locateBtn.disabled = on;
+  }
+
+  /* The accuracy halo is drawn under the pin and kept in step with it. */
+  function showAccuracy(latlng, accuracy) {
+    if (!accuracy || !isFinite(accuracy)) return;
+    if (!geoCircle) {
+      geoCircle = L.circle(latlng, {
+        radius: accuracy,
+        className: 'geo-accuracy',
+        color: '#1a73e8',
+        weight: 1,
+        opacity: 0.55,
+        fillColor: '#1a73e8',
+        fillOpacity: 0.14,
+        interactive: false
+      }).addTo(map);
+    } else {
+      geoCircle.setLatLng(latlng);
+      geoCircle.setRadius(accuracy);
+    }
+  }
+
+  function clearAccuracy() {
+    if (geoCircle) { map.removeLayer(geoCircle); geoCircle = null; }
+  }
+
+  function geoFail(err) {
+    const msg = !err ? 'Could not read your location.'
+      : err.code === 1 ? 'Location permission denied — enable it in your browser.'
+      : err.code === 2 ? 'Your position is unavailable right now.'
+      : err.code === 3 ? 'Location request timed out.'
+      : 'Could not read your location.';
+    setStatus(msg, 'err');
+    stopFollow();
+  }
+
+  /* Drop the pin on the user. `fly` centres the map on the first fix only,
+     so follow mode does not yank the view on every update. */
+  function applyUserLocation(lat, lon, accuracy, fly) {
+    showAccuracy([lat, lon], accuracy);
+    commitPoint(lat, lon, 'My location', fly);
+    /* commitPoint opens a popup; keep the halo beneath the pin. */
+    if (geoCircle) geoCircle.bringToBack();
+  }
+
+  function stopFollow() {
+    if (geoWatch !== null) { navigator.geolocation.clearWatch(geoWatch); geoWatch = null; }
+    if (following) {
+      following = false;
+      followBtn.classList.remove('active');
+      followBtn.setAttribute('aria-pressed', 'false');
+    }
+  }
+
+  function locateOnce(fly) {
+    if (!geoSupported()) { setStatus('This browser has no location support.', 'err'); return; }
+    if (geoBusy) return;
+    setLocateBusy(true);
+    setStatus('Finding your location…', 'warn');
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setLocateBusy(false);
+        const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+        applyUserLocation(lat, lon, accuracy, fly !== false);
+        setStatus(following ? 'Following your location' : 'Located · ' + Math.round(accuracy) + ' m accuracy', 'ok');
+      },
+      err => { setLocateBusy(false); geoFail(err); },
+      GEO_OPTS
+    );
+  }
+
+  locateBtn.addEventListener('click', () => {
+    /* Pressing locate again stops an active follow, like a toggle. */
+    if (following) { stopFollow(); setStatus('Follow mode off', 'warn'); return; }
+    locateOnce(true);
+  });
+
+  followBtn.addEventListener('click', () => {
+    if (following) { stopFollow(); clearAccuracy(); setStatus('Follow mode off', 'warn'); return; }
+    if (!geoSupported()) { setStatus('This browser has no location support.', 'err'); return; }
+
+    following = true;
+    followBtn.classList.add('active');
+    followBtn.setAttribute('aria-pressed', 'true');
+    setLocateBusy(true);
+    setStatus('Following your location…', 'warn');
+
+    /* The first fix centres the map; later ones only re-centre on drift. */
+    let firstFix = true;
+
+    geoWatch = navigator.geolocation.watchPosition(
+      pos => {
+        setLocateBusy(false);
+        const { latitude: lat, longitude: lon, accuracy } = pos.coords;
+        applyUserLocation(lat, lon, accuracy, firstFix);
+        firstFix = false;
+        /* Re-centre only once the user has actually moved out of view. */
+        const b = map.getBounds();
+        if (!b.contains([lat, lon])) map.setView([lat, lon], map.getZoom(), { animate: true });
+        setStatus('Following · ' + Math.round(accuracy) + ' m accuracy', 'ok');
+      },
+      err => { setLocateBusy(false); geoFail(err); },
+      GEO_OPTS
+    );
+  });
+
+  /* ==========================================================
      10. DOM HELPERS
      ========================================================== */
   const $ = id => document.getElementById(id);

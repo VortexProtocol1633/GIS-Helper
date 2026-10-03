@@ -23,6 +23,12 @@ complete session to anyone else.
   - MGRS 6-digit (100 m), 8-digit (10 m) and 10-digit (1 m)
 - **Auto-detect** input format, or force one from the dropdown.
 - **Live cursor HUD** — hover the map for a running readout; click to lock the point.
+- **My location** — a Google Maps style crosshair finds you once and drops the marker on your
+  position, and a **Follow** toggle keeps it tracking you as you move. Every format (decimal,
+  DMS, ArcGIS XY, MGRS 6/8/10) updates to wherever you are standing, and the blue circle shows
+  the reported accuracy in metres. Uses the browser's own Geolocation API: nothing is uploaded,
+  nothing is stored, and the feature needs `https://` or `localhost` as browsers only expose a
+  position over a secure connection.
 - Draggable result marker, with reverse geocoding for a readable place name.
 
 ### Tactical marking layer
@@ -116,7 +122,8 @@ the shared session JSON, so they do not travel with an exported plan file.
 
 ### Other
 - Four themes (teal, violet, navy, amber) persisted across visits.
-- A built-in **Guide** with real screen captures of every step, taken from the running app.
+- A built-in **Guide** with real full-screen captures of every step, taken from the running app
+  with that step's panel already open. Each one is clickable, opening the picture at full size.
 - Fully responsive, keyboard accessible, no build step.
 - Your session is **auto-restored** the next time you open the page.
 
@@ -179,7 +186,7 @@ GIS-Helper/
 └── Assets/
     ├── creator.jpg
     ├── creator-avatar.jpg
-    └── guide/          # Screen captures used by the Guide tab (overview, steps, dialogs)
+    └── guide/          # Full-screen captures used by the Guide tab (overview, steps, dialogs)
 ```
 
 There are no other files. `index.html` is the entire application — no build step, no

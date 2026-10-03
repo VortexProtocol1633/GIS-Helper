@@ -511,6 +511,27 @@
       </div>
     </div>
 
+    <!-- MY LOCATION -->
+    <div class="locate-ctrl">
+      <button class="layer-toggle locate-btn" id="locate-btn" title="Show my location"
+              aria-label="Show my location">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="7"/>
+          <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/>
+          <path d="M12 1.6v3.2M12 19.2v3.2M22.4 12h-3.2M4.8 12H1.6"/>
+        </svg>
+        <span class="locate-spinner" aria-hidden="true"></span>
+      </button>
+      <button class="layer-toggle locate-btn" id="follow-btn" title="Keep the map centred on me as I move"
+              aria-label="Keep the map centred on me as I move" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/>
+          <circle cx="12" cy="10" r="2.6"/>
+        </svg>
+        <span class="locate-btn-label">Follow</span>
+      </button>
+    </div>
+
     <div class="map-hud" id="hud">
       <div class="hud-header"><span class="hud-dot"></span> Cursor position</div>
       <div class="hud-row"><span class="hud-label">Lat / Lon</span><span class="hud-value" id="h-latlon">—</span></div>
@@ -737,25 +758,30 @@
           <p>
             GIS Helper is one page with six numbered cards down the left and the map on the right.
             Work top to bottom: find a point, read the coordinates, mark up the ground, then take
-            the result away as a file. The pictures below are <b>real screen captures</b> of the
-            running app, not sketches.
+            the result away as a file. Every picture below is a <b>full-screen capture of the whole
+            app</b>, taken from the running page, with that step's panel already open &mdash; click
+            one to view it at full size.
           </p>
 
           <figure class="shot">
-            <img src="Assets/guide/overview.jpg" width="1120" height="656" loading="lazy" decoding="async"
-                 alt="The full GIS Helper screen: six numbered cards down the left, a base map on the right with a marker, three deployment pins and two shaded zones." />
-            <figcaption><b>Figure 1</b> — the whole workspace. This example holds three deployments
-              and two zones around the Statue of Liberty.</figcaption>
+            <a class="shot-link" href="Assets/guide/overview.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/overview.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The full GIS Helper screen: six numbered cards down the left, a base map on the right with a marker, three deployment pins and two shaded zones." />
+            </a>
+            <figcaption><b>Figure 1</b> — the whole workspace, shown exactly as it appears on screen. This
+              example holds three deployments and two zones around the Statue of Liberty.
+              <em>Click any picture to open it full size.</em></figcaption>
           </figure>
 
           <div class="guide-steps">
             <span class="guide-step">1 &middot; Location</span>
             <span class="guide-step">2 &middot; Dashboard</span>
             <span class="guide-step">3 &middot; Map</span>
-            <span class="guide-step">4 &middot; Deployments</span>
-            <span class="guide-step">5 &middot; Zones</span>
-            <span class="guide-step">6 &middot; Download</span>
-            <span class="guide-step">7 &middot; Upload</span>
+            <span class="guide-step">4 &middot; My location</span>
+            <span class="guide-step">5 &middot; Deployments</span>
+            <span class="guide-step">6 &middot; Zones</span>
+            <span class="guide-step">7 &middot; Download</span>
+            <span class="guide-step">8 &middot; Upload</span>
           </div>
 
           <div class="help-grid">
@@ -794,10 +820,13 @@
              <b>Locate &amp; convert</b>. Four input formats are understood.</p>
 
           <figure class="shot">
-            <img src="Assets/guide/input.jpg" width="462" height="844" loading="lazy" decoding="async"
-                 alt="The Enter a location card: a text box, a Format menu set to Auto-detect, a UTM zone box and a Locate and convert button." />
-            <figcaption><b>Figure 2</b> — card 1. Leave <b>Format</b> on <em>Auto-detect</em> unless
-              you want to force one; the status pill in the top bar tells you what it recognised as you type.</figcaption>
+            <a class="shot-link" href="Assets/guide/input.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/input.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with card 1 scrolled into view: a text box holding Statue of Liberty, New York, a Format menu set to Auto-detect, a UTM zone box and a Locate and convert button." />
+            </a>
+            <figcaption><b>Figure 2</b> — the full screen with card 1 in view. Leave <b>Format</b> on
+              <em>Auto-detect</em> unless you want to force one; the status pill in the top bar tells
+              you what it recognised as you type.</figcaption>
           </figure>
 
           <div class="help-grid">
@@ -842,10 +871,12 @@
              them in one go.</p>
 
           <figure class="shot">
-            <img src="Assets/guide/card1.jpg" width="462" height="844" loading="lazy" decoding="async"
-                 alt="The Coordinate dashboard card listing decimal degrees, DMS, ArcGIS XY, and MGRS at 6, 8 and 10 digits, plus a Copy results as JSON button." />
-            <figcaption><b>Figure 3</b> — card 2. Hover a row to highlight it, click to copy that one
-              value to the clipboard.</figcaption>
+            <a class="shot-link" href="Assets/guide/card1.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/card1.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with card 2, the Coordinate dashboard, scrolled into view: decimal degrees, DMS, ArcGIS XY and MGRS at 6, 8 and 10 digits, plus a Copy results as JSON button." />
+            </a>
+            <figcaption><b>Figure 3</b> — the full screen with card 2 in view. Hover a row to highlight
+              it, click to copy that one value to the clipboard.</figcaption>
           </figure>
 
           <ul class="help-list">
@@ -870,27 +901,61 @@
              dashboard, the marker and the popup all follow.</p>
 
           <figure class="shot">
-            <img src="Assets/guide/card2.jpg" width="462" height="844" loading="lazy" decoding="async"
-                 alt="The Live cursor card showing lat/lon, ArcGIS XY and MGRS values that follow the mouse." />
-            <figcaption><b>Figure 4</b> — card 3, the live cursor. It mirrors the panel in the
-              bottom-right corner of the map.</figcaption>
+            <a class="shot-link" href="Assets/guide/card2.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/card2.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with the pointer over the map: card 3 and the Cursor position panel both show lat/lon, ArcGIS XY and MGRS values that follow the mouse." />
+            </a>
+            <figcaption><b>Figure 4</b> — the full screen with the cursor hovering the map. Card 3 and
+              the <b>Cursor position</b> panel in the corner of the map both track the pointer.</figcaption>
           </figure>
 
           <figure class="shot">
-            <img src="Assets/guide/map.jpg" width="985" height="844" loading="lazy" decoding="async"
-                 alt="The map panel with three numbered deployment pins, two shaded zones, the result marker, zoom buttons, the cursor position panel, scale bar and attribution." />
-            <figcaption><b>Figure 5</b> — the map. Numbered pins are the deployments, shaded polygons
-              are the zones, and the teardrop pin is the map indicator. The picture you get from
-              <b>Download</b> is this view, framed and rendered onto a canvas.</figcaption>
+            <a class="shot-link" href="Assets/guide/map.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/map.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app showing the map panel with three numbered deployment pins, two shaded zones, the result marker, zoom buttons, the Locate and Follow controls, the cursor position panel, scale bar and attribution." />
+            </a>
+            <figcaption><b>Figure 5</b> — the full screen. Numbered pins are the deployments, shaded
+              polygons are the zones, and the teardrop pin is the map indicator. The picture you get
+              from <b>Download</b> is this view, framed and rendered onto a canvas.</figcaption>
           </figure>
 
           <figure class="shot">
-            <img src="Assets/guide/layers.jpg" width="610" height="374" loading="lazy" decoding="async"
-                 alt="The base map menu open, listing Standard, Satellite, Terrain and Humanitarian." />
-            <figcaption><b>Figure 6</b> — the base-map switcher, top-right of the map. Whatever is
-              selected here is what a download uses when <em>Map type</em> is left on
-              <em>Same as the map on screen</em>.</figcaption>
+            <a class="shot-link" href="Assets/guide/layers.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/layers.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with the base map menu open in the top-right of the map, listing Standard, Satellite, Terrain and Humanitarian." />
+            </a>
+            <figcaption><b>Figure 6</b> — the full screen with the base-map switcher open, top-right of
+              the map. Whatever is selected here is what a download uses when <em>Map type</em> is
+              left on <em>Same as the map on screen</em>.</figcaption>
           </figure>
+
+          <!-- ---------------- MY LOCATION ---------------- -->
+          <!-- ---------------- STEP 4 ---------------- -->
+          <h3><span class="pill">Step 4</span> Show your own location</h3>
+          <p>
+            The two buttons above the map on the right do what they do in Google Maps: the
+            <b>crosshair</b> finds you once and drops the pin on your position, and <b>Follow</b> keeps
+            the pin tracking you as you move. Turn location on for the site when the browser asks, and
+            the coordinates, MGRS and ArcGIS XY values update to wherever you are standing.
+          </p>
+
+          <figure class="shot">
+            <a class="shot-link" href="Assets/guide/locate.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/locate.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app after the crosshair button has located the user: the map is centred on the current position, a blue accuracy circle surrounds the pin, and the status pill reports the accuracy in metres." />
+            </a>
+            <figcaption><b>Figure 7</b> — the full screen straight after locating. The blue circle is the
+              reported accuracy, the pin sits at your position, and the status pill gives the radius in
+              metres. Press <b>Follow</b> and the pin keeps up as you drive.</figcaption>
+          </figure>
+
+          <div class="help-callout">
+            <span class="callout-dot warn"></span>
+            <p>Nothing is sent anywhere: the browser hands the coordinates straight to this page, and
+              nothing is stored or uploaded. Browsers only report a position over a secure connection
+              (<code>https://</code> or <code>localhost</code>), so the feature stays greyed out on a
+              plain <code>http://</code> address.</p>
+          </div>
 
           <ul class="help-list">
             <li><b>Zoom</b> &mdash; the +/&minus; buttons top-left, the scroll wheel, or a pinch.</li>
@@ -901,15 +966,18 @@
 
         <!-- ---------------- STEP 4 ---------------- -->
         <section class="help-section">
-          <h3><span class="pill">Step 4</span> Deployments</h3>
+          <h3><span class="pill">Step 5</span> Deployments</h3>
           <p>Open this card with the <b>Deploy</b> button in the top bar. Pick a unit type, fill in
              whoever you need, and press <b>Place on map</b>.</p>
 
           <figure class="shot">
-            <img src="Assets/guide/deploy.jpg" width="1120" height="656" loading="lazy" decoding="async"
-                 alt="The Deployments card open: unit type, icon, colour, live preview, commander, troops, vehicles, arms and equipment, Place on map, and the list of placed units below." />
-            <figcaption><b>Figure 7</b> — the Deployments card with three units placed. The icon menu,
-              colour and preview update automatically when you change the unit type.</figcaption>
+            <a class="shot-link" href="Assets/guide/deploy.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/deploy.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with the Deployments card open: unit type, icon, colour, live preview, commander, troops, vehicles, arms and equipment, Place on map, and the list of placed units below." />
+            </a>
+            <figcaption><b>Figure 8</b> — the full screen with the Deployments card open and three units
+              placed. The icon menu, colour and preview update automatically when you change the unit
+              type.</figcaption>
           </figure>
 
           <div class="help-grid">
@@ -1023,25 +1091,31 @@
              JSON file, so a teammate's names arrive with their plan.</p>
 
           <figure class="shot">
-            <img src="Assets/guide/types.jpg" width="940" height="860" loading="lazy" decoding="async"
-                 alt="The Unit types manager: the six built-in types, the list of your own types, and a form to create a new one with a name, icon picker and colour." />
-            <figcaption><b>Figure 8</b> — the unit-type manager. Deleting a type that is still in use
-              asks first and moves those deployments to <em>Company HQ</em>, keeping all their details.</figcaption>
+            <a class="shot-link" href="Assets/guide/types.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/types.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with the Unit types manager open over it: the six built-in types, the list of your own types, and a form to create a new one with a name, icon picker and colour." />
+            </a>
+            <figcaption><b>Figure 9</b> — the unit-type manager over the full screen. Deleting a type
+              that is still in use asks first and moves those deployments to <em>Company HQ</em>, keeping
+              all their details.</figcaption>
           </figure>
         </section>
 
         <!-- ---------------- STEP 5 ---------------- -->
         <section class="help-section">
-          <h3><span class="pill">Step 5</span> Zones</h3>
+          <h3><span class="pill">Step 6</span> Zones</h3>
           <p>Open the Zones card with the <b>Zones</b> button in the top bar, choose a colour and a
              name, then click <b>Start drawing</b> and click points on the map to build a polygon.
              Double-click or press <b>Stop drawing</b> to finish.</p>
 
           <figure class="shot">
-            <img src="Assets/guide/zones.jpg" width="1120" height="656" loading="lazy" decoding="async"
-                 alt="The Zones card open with a colour picker, name field, opacity slider and drawing buttons, alongside a map showing two shaded polygons and the list of zones with their areas." />
-            <figcaption><b>Figure 9</b> — the Zones card. Each zone carries a name, colour and fill
-              opacity, and its area in m&sup2; or km&sup2; is calculated as you draw.</figcaption>
+            <a class="shot-link" href="Assets/guide/zones.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/zones.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with the Zones card open: a colour picker, name field, opacity slider and drawing buttons, alongside a map showing two shaded polygons and the list of zones with their areas." />
+            </a>
+            <figcaption><b>Figure 10</b> — the full screen with the Zones card open. Each zone carries a
+              name, colour and fill opacity, and its area in m&sup2; or km&sup2; is calculated as you
+              draw.</figcaption>
           </figure>
 
           <ul class="help-list">
@@ -1052,9 +1126,9 @@
           </ul>
         </section>
 
-        <!-- ---------------- STEP 6 ---------------- -->
-        <section class="help-section">
-          <h3><span class="pill">Step 6</span> Download the plan</h3>
+        <!-- ---------------- STEP 7 ---------------- -->
+          <section class="help-section">
+            <h3><span class="pill">Step 7</span> Download the plan</h3>
           <p>
             Press <b>Download</b> in the top bar (or the <b>Download plan</b> button in card 6).
             Choose a format, set how the map should look, tick what goes in, and press the button at
@@ -1062,9 +1136,12 @@
           </p>
 
           <figure class="shot">
-            <img src="Assets/guide/download.jpg" width="940" height="860" loading="lazy" decoding="async"
-                 alt="The Download dialog: JSON, PDF and PNG choices, a Map appearance group with Map type, North facing, Scale bar, Framing, plan title and date, and a list of items to include." />
-            <figcaption><b>Figure 10</b> — the Download dialog with <b>PDF map sheet</b> selected. The
+            <a class="shot-link" href="Assets/guide/download.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/download.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with the Download dialog over it: JSON, PDF and PNG choices, a Map appearance group with Map type, North facing, Scale bar, Framing, plan title and date, and a list of items to include." />
+            </a>
+            <figcaption><b>Figure 11</b> — the Download dialog over the full screen, with
+              <b>PDF map sheet</b> selected. The
               Map appearance group appears as soon as you pick PDF or PNG.</figcaption>
           </figure>
 
@@ -1141,9 +1218,11 @@
           </div>
 
           <figure class="shot">
-            <img src="Assets/guide/sheet.jpg" width="1120" height="723" loading="lazy" decoding="async"
-                 alt="The generated plan picture: the framed map with numbered deployment pins, tagged zones, the map indicator, a scale bar, a north arrow and the base map attribution." />
-            <figcaption><b>Figure 11</b> — what the map page of the PDF (and the PNG) looks like.
+            <a class="shot-link" href="Assets/guide/sheet.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/sheet.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with the plan-sheet preview open, showing the generated plan picture: the framed map with numbered deployment pins, tagged zones, the map indicator, a scale bar, a north arrow and the base map attribution." />
+            </a>
+            <figcaption><b>Figure 12</b> — the full screen with the plan sheet previewed. This is what the map page of the PDF (and the PNG) looks like.
               Numbered pins line up with the deployment table on the page after, and the scale figure
               sits under the scale bar.</figcaption>
           </figure>
@@ -1157,10 +1236,13 @@
           </div>
 
           <figure class="shot">
-            <img src="Assets/guide/data.jpg" width="470" height="844" loading="lazy" decoding="async"
-                 alt="Card 6 in the sidebar: Download plan, Save to browser, Load from browser, Copy all data, Export JSON file, Upload JSON file, and the Export options group." />
-            <figcaption><b>Figure 13</b> &mdash; card 6. <b>Download plan</b> opens the dialog above;
-              <b>Upload JSON file</b> is the same action as the <b>Upload</b> button in the top bar.</figcaption>
+            <a class="shot-link" href="Assets/guide/data.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/data.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with card 6 scrolled into view: Download plan, Save to browser, Load from browser, Copy all data, Export JSON file, Upload JSON file, and the Export options group." />
+            </a>
+            <figcaption><b>Figure 13</b> &mdash; the full screen with card 6 in view. <b>Download
+              plan</b> opens the dialog above; <b>Upload JSON file</b> is the same action as the
+              <b>Upload</b> button in the top bar.</figcaption>
           </figure>
 
           <p>Card 6 also keeps the browser-level tools: <b>Save to browser</b> and
@@ -1170,9 +1252,9 @@
              browser's print dialog on the very same page if you would rather print it yourself.</p>
         </section>
 
-        <!-- ---------------- STEP 7 ---------------- -->
-        <section class="help-section">
-          <h3><span class="pill">Step 7</span> Upload a plan</h3>
+        <!-- ---------------- STEP 8 ---------------- -->
+          <section class="help-section">
+            <h3><span class="pill">Step 8</span> Upload a plan</h3>
           <p>
             Press <b>Upload</b> in the top bar and pick a <code>.json</code> file saved from GIS
             Helper &mdash; yours or a teammate's &mdash; and carry on working from it. You can also
@@ -1180,9 +1262,11 @@
           </p>
 
           <figure class="shot">
-            <img src="Assets/guide/upload.jpg" width="940" height="860" loading="lazy" decoding="async"
-                 alt="The import dialog showing the file name, a summary of three deployments, two zones and one map indicator, and two choices: merge into current data or replace everything." />
-            <figcaption><b>Figure 12</b> — if the map already has data you are asked how to apply the
+            <a class="shot-link" href="Assets/guide/upload.jpg" target="_blank" rel="noopener">
+              <img src="Assets/guide/upload.jpg" width="2400" height="1470" loading="lazy" decoding="async"
+                   alt="The whole app with the import dialog over it, showing the file name, a summary of three deployments, two zones and one map indicator, and two choices: merge into current data or replace everything." />
+            </a>
+            <figcaption><b>Figure 14</b> — if the map already has data you are asked how to apply the
               file. <b>Merge</b> adds to what is there; <b>Replace</b> clears the map first.</figcaption>
           </figure>
 
