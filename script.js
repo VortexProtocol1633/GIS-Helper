@@ -2858,7 +2858,6 @@
   const PDF_H = 595;
   const PDF_M = 30;
   const FONT = 'Poppins, "Segoe UI", system-ui, -apple-system, Arial, sans-serif';
-  const EXPORT_ACCENT = '#00C8B4';
   const M_TO_FT = 3.280839895;
   const NICE_METRES = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000,
                        10000, 20000, 50000, 100000, 200000, 500000, 1000000];
@@ -3527,34 +3526,12 @@
     });
   }
 
-  function drawIndicator(ctx, proj) {
-    if (!validIndicator(savedIndicator)) return;
-    const p = proj.project(savedIndicator.lat, savedIndicator.lon);
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(p.x - 26, p.y); ctx.lineTo(p.x + 26, p.y);
-    ctx.moveTo(p.x, p.y - 26); ctx.lineTo(p.x, p.y + 26);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(p.x, p.y);
-    ctx.bezierCurveTo(p.x - 13, p.y - 15, p.x - 11, p.y - 32, p.x, p.y - 32);
-    ctx.bezierCurveTo(p.x + 11, p.y - 32, p.x + 13, p.y - 15, p.x, p.y);
-    ctx.closePath();
-    ctx.fillStyle = EXPORT_ACCENT;
-    ctx.fill();
-    ctx.lineWidth = 2.5;
-    ctx.strokeStyle = '#06131A';
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(p.x, p.y - 22, 4.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#06131A';
-    ctx.fill();
-
-    drawTag(ctx, p.x, p.y - 50, savedIndicator.name || 'Map indicator', EXPORT_ACCENT);
-  }
+  /* The map indicator is deliberately NOT drawn on the exported picture.
+     It marks the working point in the live app, but on a handed-over plan
+     sheet it reads as a pin marking the spot rather than as part of the
+     ground data, so only the deployments and zones are printed. The
+     indicator's coordinates still appear in the PDF/PNG facts block and
+     still travel in the JSON, and it still influences auto-framing. */
 
   function drawScaleBar(ctx, proj, centerLat) {
     if (!exportPrefs.include.scale) return;
@@ -3701,7 +3678,6 @@
 
     drawZones(ctx, proj);
     drawDeployments(ctx, proj);
-    drawIndicator(ctx, proj);
     drawScaleBar(ctx, proj, mid.lat);
     drawNorthArrow(ctx, proj);
     drawAttribution(ctx, usedTiles);
