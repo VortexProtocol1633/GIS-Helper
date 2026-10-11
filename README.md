@@ -4,7 +4,7 @@
 
 GIS Helper converts a location between every format a field kit tends to demand —
 decimal degrees, DMS, MGRS/USNG (6, 8 and 10 digit) and ArcGIS XY (UTM easting/northing) —
-and lets you pin **deployments** and draw **zones** on top of the result.
+and lets you pin **deployments**, mark **spot points** and draw **zones** on top of the result.
 
 There is **no backend, no database and no account**. Your data never leaves your
 machine unless you explicitly copy or export it, and a single JSON file carries a
@@ -39,20 +39,88 @@ complete session to anyone else.
 - **Polygon zones** with live area calculation in m² / km², adjustable fill opacity, and a free-text **Details** note.
 - Drag to reorder deployments, duplicate, fly-to, edit, and delete entries.
 - A map legend and an always-available zone/deployment list.
-- **Clear all op data** on the map wipes every deployment and zone at once.
+- **Clear all op data** on the map wipes every deployment, spot point and zone at once.
+
+### Spot points
+Single positions rather than units — an observation point, an enemy sighting, your own
+position, a waypoint, a hazard, a reference point — each with an optional name and a
+free-text note.
+
+- **Six built-in spot types** — Obsn Pt, Enemy Spot, Own Spot, Waypoint, Hazard and
+  Reference Pt — plus **your own spot types** with a name, up to 3 icons and a colour,
+  managed exactly like the unit types.
+- Drawn as a lettered circle on the map, so a spot never reads as a unit: the letters
+  **A, B, C…** cross-reference the Spot Points table.
+- Every spot carries its **latitude / longitude** *and* its **ArcGIS XY (UTM easting /
+  northing)**, plus the full DMS and MGRS — shown in the marker popup, in the sidebar
+  row, and in a **separate “Spot Points” section** of the report sheet and the PDF.
+- Drag a marker to move it, drag its row to reorder, edit it, duplicate it, delete it.
+
+The Spot Points table prints **#**, name, spot type, details, **Lat / Lon**,
+**ArcGIS XY (UTM E / N)** and **MGRS 8**, and it can be left off the sheet with its own
+tick in the *Include* group.
+
+### GeoJSON (for GIS)
+**Download → GeoJSON** (or the **Export GeoJSON** button in the Download & Upload card) hands the
+plan over as one `gis-helper-features-YYYY-MM-DD.geojson` file, ready to load as data layers:
+
+| Feature | Geometry |
+| --- | --- |
+| Every **deployment** | `Point` |
+| Every **spot point** | `Point` |
+| Every **zone** | `Polygon` (the ring is closed, as GeoJSON requires) |
+| The **map indicator** | `Point` |
+
+Each feature carries the coordinates the app already prints as attributes — **latitude**,
+**longitude**, **dms**, **utmZone**, **utmEasting**, **utmNorthing** and **mgrs** — plus the
+marking's own fields (`kind`, `ref`, `label`, `type`, commander / troops / vehicles / armsAmmo /
+equipment, or `name` / `details`, or `areaM2` / `vertexCount`). `ref` is the same number or letter
+as the pin or circle on the picture and the sheet, so the file and the paper cross-reference.
+Zones put their centre in clearly-named `centre…` fields so it is never confused with the ring
+itself, and the collection carries a `bbox` so a GIS can zoom straight to the plan.
+
+Positions are **WGS 84, longitude first** (RFC 7946), which is what ArcGIS, QGIS, Global Mapper,
+GeoPandas and every web map expect. Read it back into GIS Helper with the **JSON** file — the
+GeoJSON is for the other side of the fence.
+
+### Georeferenced PNG (for GIS)
+**Download → PNG** (and **Export PNG**) does not hand you a loose picture: it builds a
+**`.zip`** holding the image together with everything a GIS needs to place it on the world
+map.
+
+| File in the bundle | What it is |
+| --- | --- |
+| `gis-helper-plan-YYYY-MM-DD.png` | The 1600×1000 plan picture, in **EPSG:3857** (WGS 84 / Pseudo-Mercator, metres). |
+| `…​.pgw` | The world file — the six affine terms that map a pixel to a map coordinate, measured off the picture's own projector. |
+| `…​.prj` | The projection as ESRI WKT (`WGS_1984_Web_Mercator_Auxiliary_Sphere`). |
+| `…​ READ ME.txt` | The projection, the scale, the rotation and how to open it. |
+
+Unzip it and open the `.png` in ArcGIS, ArcGIS Pro, QGIS, Global Mapper or any other GIS
+that reads a world file — keep the four files together and it lines up with every other
+Web Mercator layer you have. Nothing is re-projected or approximated: the picture is painted
+from Web Mercator tiles at a known zoom, so the mapping is exact.
+
+**Rotate to fit still georeferences correctly.** A rotated plan is described by the world
+file's own rotation terms (`D` and `B`), which are written from the same projector that drew
+the plan — so a north-up export gets a clean axis-aligned world file and a rotated one gets
+an affine that still puts every pin on its true ground position.
+
+Untick **Georeferenced PNG** in *Export options* (or in the Download dialog) if you just
+want the bare `.png` — a plain picture with no world file, as before.
 
 ### Data — download, upload, save, copy
 A **Download** button sits in the top bar (and one in the **Download & Upload** card). It opens a
-single dialog that takes the whole plan away as **JSON**, **PDF** or **PNG**, with your choice of
-map type, map scale, scale bar, north facing and framing. A matching **Upload** button loads a saved
+single dialog that takes the whole plan away as **JSON**, **GeoJSON**, **PDF** or **PNG**, with your
+choice of map type, map scale, scale bar, north facing and framing. A matching **Upload** button loads a saved
 plan back in. Every one of those actions uses the **same JSON payload**, so a copied blob, an
 exported file and the browser's saved session can never drift apart in shape.
 
 | Action | What it does |
 | --- | --- |
 | **Download → JSON** | Downloads `gis-helper-data-YYYY-MM-DD.json` — the working file, re-importable by anyone. |
-| **Download → PDF** | Builds a real `.pdf`: the map page, then the coordinate facts and the deployment and zone tables. |
-| **Download → PNG** | The 1600×1000 plan picture on its own. |
+| **Download → GeoJSON** | Downloads `gis-helper-features-YYYY-MM-DD.geojson` — the layers themselves, for GIS. Also on its own button, **Export GeoJSON**, in the Download & Upload card. |
+| **Download → PDF** | Builds a real `.pdf`: the map page, then the coordinate facts and the deployment, **Spot Points** and zone tables. |
+| **Download → PNG** | The 1600×1000 plan picture, georeferenced — a `.zip` holding the image, its `.pgw` world file, its `.prj` and a READ ME. Untick *Georeferenced PNG* for the bare picture. |
 | **Upload JSON file** | Loads a saved file — or just **drag and drop** a `.json` anywhere on the page. |
 | **Save to browser** | Writes the session to `localStorage` (auto-saved as you work). |
 | **Load from browser** | Restores the last saved session onto the map. |
@@ -63,31 +131,41 @@ exported file and the browser's saved session can never drift apart in shape.
 
 1. Build your map.
 2. Press **Download** in the top bar.
-3. Pick **JSON**, **PDF** or **PNG**, choose the **map type**, **map scale**, **north facing**,
-   **scale bar** and **framing**, tick what should be included, and press the button at the bottom.
+3. Pick **JSON**, **GeoJSON**, **PDF** or **PNG**, choose the **map type**, **map scale**,
+   **north facing**, **scale bar** and **framing**, tick what should be included, and press the
+   button at the bottom.
+4. A PNG download arrives as a `.zip` — unzip it and the picture, its `.pgw` world file and
+   its `.prj` are ready for ArcGIS, QGIS or any other GIS.
 
 A session contains:
 
 - the **map indicator** position and name,
 - every **deployment** (type, icon, colour, details, coordinates),
+- every **spot point** (type, icon, colour, name, details, coordinates),
 - every **zone** (vertices, colour, opacity, details, computed area),
-- your **custom unit types**.
+- your **custom unit types** and **custom spot types**.
 
 ### PDF, print report & image export
 - **Download → PDF** writes a genuine `.pdf` file: page one is the framed map, the pages after it
   are the map indicator's full coordinate readouts, the unit types in use, and a table of every
-  deployment and every zone with its area, centre and MGRS reference. The file is assembled by
-  hand in the browser — the map is embedded as JPEG (`/DCTDecode`) and the text uses the base-14
-  Helvetica fonts every reader already has — so there is still **no dependency to install**.
+  deployment, every **spot point** (with its lat/lon and ArcGIS XY) and every zone with its area,
+  centre and MGRS reference. The file is assembled by hand in the browser — the map is embedded
+  as JPEG (`/DCTDecode`) and the text uses the base-14 Helvetica fonts every reader already has —
+  so there is still **no dependency to install**. The text pages name the projection the picture
+  is in, so the sheet stands on its own.
 - **Print report** renders the same idea as a single A4 landscape sheet and hands it to your
   browser's print dialog, for anyone who would rather print it themselves.
 - **Preview sheet** puts that sheet on screen first, with the print options in a panel beside it.
   It is the same markup and the same stylesheet the print dialog uses, drawn on a page of A4 at
   its true size (scaled down to fit the window), and it redraws the moment you change an option
   or the plan itself — so you can check the page without spending a print.
-- **Download → PNG** gives the picture alone as `gis-helper-plan-YYYY-MM-DD.png` (1600×1000),
-  with numbered pins that cross-reference the table, a scale bar, a north arrow and the base
-  map's attribution.
+- **Download → GeoJSON** writes a `FeatureCollection` (points for deployments, spot points and the
+  map indicator, polygons for zones) with the latitude / longitude, ArcGIS XY and MGRS of every
+  feature as attributes — the same plan as a set of GIS layers.
+- **Download → PNG** gives `gis-helper-plan-YYYY-MM-DD.zip`: the `1600×1000` picture
+  (`gis-helper-plan-YYYY-MM-DD.png`), its `.pgw` world file, its `.prj` and a READ ME, with
+  numbered pins and lettered spot circles that cross-reference the tables, a scale bar, a north
+  arrow and the base map's attribution. It opens as a layer in any GIS.
 - The picture frames every deployment, zone and the map indicator automatically —
   you do not have to zoom the map first.
 - If the tile server refuses cross-origin tile reads (a browser security restriction
@@ -107,20 +185,23 @@ can never disagree. Options are remembered in this browser.
 
 | Option | Values | Notes |
 | --- | --- | --- |
-| **Frame** | All deployments, zones & indicator · Whatever the map is showing · Deployments only · Zones only · Map indicator only | Chooses what the picture frames. Picking a preset with nothing in it tells you exactly what is missing instead of exporting a blank sheet. |
+| **Frame** | All deployments, spots, zones & indicator · Whatever the map is showing · Deployments only · Spot points only · Zones only · Map indicator only | Chooses what the picture frames. Picking a preset with nothing in it tells you exactly what is missing instead of exporting a blank sheet. |
 | **Map type** | Same as the map on screen · Standard · Satellite · Terrain · Humanitarian | The base map drawn into the file. The default follows whatever the live map is showing, and choosing another one never changes the map on screen. |
 | **North facing** | North up · Rotate to fit | North up is the default. Rotate to fit computes the plan's principal axis and spins the sheet onto it, so a long or diagonal plan fills the frame; the north arrow follows and the caption states the applied angle. |
 | **Map scale** | Auto · 1:5 000 · 1:10 000 · 1:25 000 · 1:50 000 · 1:100 000 and larger | A representative fraction, measured against the A4 landscape sheet the PDF is laid out on — at 1:25 000, 1 cm on the sheet is 250 m on the ground. **Auto** frames the whole plan and prints the scale it came out at; a fixed scale always wins, which on a tight plan means the picture crops it and the caption says so. The figure is printed on the sheet itself, under the scale bar. |
 | **Scale bar** | Metric + imperial · Metric · Imperial · Hidden | Imperial uses feet and miles. |
 | **Plan title** | free text | Prints in the PDF and report header, e.g. `Exercise Ironclad`. |
 | **Plan date** | date | Prints in the PDF and report header, distinct from when the file was generated. |
-| **Include** | Map · Scale bar · North arrow · Deployments · Zones | Shapes the PDF and the picture. A JSON download always carries everything, whatever is ticked. |
+| **Include** | Map · Scale bar · North arrow · Deployments · Spot Points · Zones | Shapes the PDF and the picture. A JSON download always carries everything, whatever is ticked. |
+| **Georeferenced PNG** | on · off | Bundles the picture with its `.pgw` world file and `.prj` (EPSG:3857) in one `.zip`. On by default; untick it for the bare image. |
 
 The title and date appear on the **sheet only** — they are not burned into the PNG. Like the theme
 and custom unit types, export options are per-browser settings and are deliberately *not* part of
 the shared session JSON, so they do not travel with an exported plan file.
 
 ### Other
+- Five cards on the marking layer: coordinate input, dashboard, live cursor, then
+  **Deployments**, **Spot points**, **Zones** and the **Download & Upload** card.
 - Four themes (teal, violet, navy, amber) persisted across visits.
 - A built-in **Guide** with real full-screen captures of every step, taken from the running app
   with that step's panel already open. Each one is clickable, opening the picture at full size.
@@ -179,9 +260,11 @@ Both frame all your deployments, zones and the map indicator for you.
 
 ```
 GIS-Helper/
-├── index.html          # Markup, the About/Help modal, download & upload dialogs, report sheet
+├── index.html          # Markup, the About/Help modal, the type managers, download & upload
+│                       # dialogs, the report sheet
 ├── style.css           # All styling, four themes as CSS custom properties, print rules
-├── script.js           # Coordinate maths, map, marking layer, data layer, export + PDF engine
+├── script.js           # Coordinate maths, map, marking layer (deployments, spot points,
+│                       # zones), data layer, export + PDF + georeferencing engine
 ├── LICENSE             # MIT
 └── Assets/
     ├── creator.jpg
@@ -200,11 +283,14 @@ Handy if you want to generate or edit a plan programmatically. Pretty-printed JS
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "exportedAt": "2026-10-03T12:00:00.000Z",
   "app": "GIS Helper",
   "customUnitTypes": [
     { "id": "custom-a1b2", "label": "Recon Team Alpha", "icons": ["drone"], "color": "#38BDF8", "builtin": false }
+  ],
+  "customSpotTypes": [
+    { "id": "spot-z9boq5", "label": "Vehicle checkpoint", "icons": ["hazard"], "color": "#FFAA00", "builtin": false }
   ],
   "indicator": {
     "lat": 40.68925,
@@ -224,6 +310,19 @@ Handy if you want to generate or edit a plan programmatically. Pretty-printed JS
       "equip": "Vehicle-mounted",
       "lat": 40.6895,
       "lon": -74.044,
+      "timestamp": 1767225600000
+    }
+  ],
+  "spotPoints": [
+    {
+      "id": "mv48sndh6dge",
+      "type": "spot-z9boq5",
+      "icon": "hazard",
+      "color": "#FFAA00",
+      "name": "Bridge 1",
+      "details": "Two spans, observed 06:20.",
+      "lat": 40.68925,
+      "lon": -74.0445,
       "timestamp": 1767225600000
     }
   ],
@@ -252,10 +351,17 @@ use **`lon`**. That asymmetry comes from Leaflet's own lat/lng convention.
 `sigint-platoon`, `isr-platoon`, `humint-platoon`, `special-task` — or a
 `custom-…` id defined in `customUnitTypes`.
 
+For a spot point, `type` is one of `obsn-pt`, `enemy-spot`, `own-spot`,
+`waypoint`, `hazard`, `ref-pt`, or a `spot-…` id defined in `customSpotTypes`.
+Spot points live under **`spotPoints`**; older files that named the list `spots`
+are read too.
+
 Everything except `vertices` (and `lat` / `lon` for positions) is optional.
 Older files are accepted and missing fields are filled in safely, so files
-from earlier versions still import — unknown unit types fall back to Company HQ
-and legacy icon names are mapped to their modern equivalents.
+from earlier versions still import — unknown unit types fall back to Company HQ,
+unknown spot types fall back to Obsn Pt, spot points with no usable position are
+skipped rather than dropped onto 0,0, and legacy icon names are mapped to their
+modern equivalents.
 
 ---
 
@@ -271,6 +377,9 @@ and legacy icon names are mapped to their modern equivalents.
   smallest zoom that frames it, purely to paint them onto the canvas. Nothing is
   sent anywhere; the requests go to the same public tile server that is already
   drawing your map.
+- Georeferencing is worked out **entirely on your machine** from the export's own
+  projector. The `.pgw`, `.prj` and READ ME are written in the browser; no coordinate is
+  ever sent to a projection service.
 - Exported files are ignored by git (see `.gitignore`) so a real plan is never
   committed by accident.
 

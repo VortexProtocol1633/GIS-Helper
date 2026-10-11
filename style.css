@@ -1787,11 +1787,11 @@ kbd {
 .topbar-actions .icon-btn svg { width: 17px; height: 17px; }
 
 /* ---- Deployments card ---- */
-.card-deployments, .card-zones, .card-data {
+.card-deployments, .card-spots, .card-zones, .card-data {
   display: none;
 }
 
-.card-deployments.open, .card-zones.open, .card-data.open {
+.card-deployments.open, .card-spots.open, .card-zones.open, .card-data.open {
   display: block;
 }
 
@@ -2015,6 +2015,7 @@ kbd {
 
 /* Field groups that only apply to one kind of marking are toggled by script. */
 .edit-only-zone,
+.edit-only-spot,
 .edit-only-deploy { display: none; }
 
 .edit-preview-row {
@@ -2220,6 +2221,42 @@ kbd {
 .deploy-item:hover .deploy-badge,
 .leaflet-marker-icon:hover .deploy-badge {
   transform: scale(1.06);
+}
+
+/* ---- Spot point marker ----
+   A spot point is a position, not a unit, so it is drawn as a ringed circle
+   rather than the rounded square a deployment gets. Same accent variables, so
+   a type's colour drives both. */
+.spot-marker-icon {
+  background: none;
+  border: none;
+}
+
+.spot-badge {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  background: var(--badge-soft);
+  border: 3px solid var(--badge);
+  border-radius: 50%;
+  color: var(--badge);
+  box-shadow: 0 0 0 4px var(--badge-ring), 0 4px 14px -4px var(--badge-glow);
+  transition: transform .15s ease, background .3s ease, border-color .3s ease, color .3s ease;
+}
+
+.spot-badge svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.leaflet-marker-icon:hover .spot-badge { transform: scale(1.08); }
+
+/* The legend swatch for a spot reads as a point too */
+.map-legend .legend-swatch.spot-swatch {
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .45);
 }
 
 .deploy-select {
@@ -2841,6 +2878,21 @@ kbd {
   border-bottom: 1px solid #DCE4EC;
 }
 .report-block h2 span { color: #5B6B7A; font-weight: 500; }
+/* The three marking tables start immediately under their heading, so theirs is
+   pulled tight onto the first row - the sheets are long enough without the gap.
+   The PDF headings shrink by the same amount (planBlocks). */
+#report-deployments-block h2,
+#report-spots-block h2,
+#report-zones-block h2 {
+  margin-bottom: 0.7mm;
+  padding-bottom: 0.6mm;
+}
+.report-sheet.is-dense #report-deployments-block h2,
+.report-sheet.is-dense #report-spots-block h2,
+.report-sheet.is-dense #report-zones-block h2 {
+  margin-bottom: 0.5mm;
+  padding-bottom: 0.5mm;
+}
 
 .report-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
 /* Heads are centred inside their own column, so the labels read as one
@@ -3007,7 +3059,7 @@ kbd {
 /* ============================================================
    IMPORT MODE PROMPT
    ============================================================ */
-/* Four data buttons read better stacked full-width than as a 2x2 grid */
+/* The data buttons read better stacked full-width than as a 2x2 grid */
 .card-data .data-actions { grid-template-columns: 1fr; }
 
 .import-modal { width: min(560px, 100%); }

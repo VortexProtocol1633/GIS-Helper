@@ -783,7 +783,7 @@
     const latlonStr = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
     const utmStr    = `${u.zone}${u.hemisphere} ${fmtInt(u.easting)}E ${fmtInt(u.northing)}N`;
 
-    setText('l-latlon', latlonStr); setText('l-utm', utmStr); setText('l-m6', m6); setText('l-m8', m8);
+    /* The map's own cursor HUD is the live readout - there is no sidebar card for it. */
     setText('h-latlon', latlonStr); setText('h-utm', utmStr); setText('h-m6', m6); setText('h-m8', m8);
   }
 
@@ -966,7 +966,16 @@
     detective: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5c2.9 0 5.2 2.2 5.2 5.1v1.4H6.8V9.6C6.8 6.7 9.1 4.5 12 4.5Z"/><path d="M3.6 11h16.8"/><circle cx="14.6" cy="17" r="3.8"/><path d="m17.4 19.8 3.1 3.1"/></svg>',
     star: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 2.6 2.9 5.9 6.5.95-4.7 4.6 1.1 6.5L12 17.5l-5.8 3.05 1.1-6.5-4.7-4.6 6.5-.95z"/></svg>',
     diamond: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 2.4 21.6 12 12 21.6 2.4 12z"/></svg>',
-    circle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/></svg>'
+    circle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none"/></svg>',
+
+    /* Spot point icons. They sit in the same pool as the unit icons, so the
+       icon pickers offer them to unit types and spot types alike. */
+    binoculars: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.3" cy="15.4" r="4.1"/><circle cx="17.7" cy="15.4" r="4.1"/><path d="M10.4 15.4h3.2"/><path d="M8.9 3.2h6.2l1.4 8.2"/><path d="M8.9 3.2 7.5 11.4"/></svg>',
+    target: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><circle cx="12" cy="12" r="4.1"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><path d="M12 1.6v3.2M12 19.2v3.2M1.6 12h3.2M19.2 12h3.2"/></svg>',
+    shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.6 20 5.6v6.2c0 4.7-3.2 8.4-8 9.6-4.8-1.2-8-4.9-8-9.6V5.6z"/><path d="m8.9 11.9 2.2 2.2 4-4.2"/></svg>',
+    waypoint: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.6s6.4-6.1 6.4-10.9A6.4 6.4 0 0 0 5.6 10.7c0 4.8 6.4 10.9 6.4 10.9z"/><circle cx="12" cy="10.5" r="2.4"/></svg>',
+    hazard: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.3 22 20.4H2z"/><path d="M12 9.4v5.1"/><circle cx="12" cy="17.4" r="1.05" fill="currentColor" stroke="none"/></svg>',
+    grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>'
   };
 
   const ICON_LABEL = {
@@ -977,7 +986,13 @@
     detective: 'Detective',
     star: 'Star',
     diamond: 'Diamond',
-    circle: 'Circle'
+    circle: 'Circle',
+    binoculars: 'Binoculars (observation)',
+    target: 'Target (enemy)',
+    shield: 'Shield (own)',
+    waypoint: 'Waypoint pin',
+    hazard: 'Hazard triangle',
+    grid: 'Grid square'
   };
 
   /* The six fixed unit types. These ship with the tool and cannot be edited,
@@ -1185,6 +1200,225 @@
     return ICON_SVG[iconKey] || ICON_SVG.circle;
   }
 
+  /* ============================================================
+     15b. SPOT POINT TYPES
+     ------------------------------------------------------------
+     A spot point is a single position on the ground - an observation
+     point, an enemy sighting, your own position - rather than a unit
+     with a strength and an order of battle. It gets its own preset
+     types, and the user can add their own alongside them exactly as
+     they can for unit types.
+     ============================================================ */
+  const BUILTIN_SPOT_TYPES = {
+    'obsn-pt':    { id: 'obsn-pt',    label: 'Obsn Pt',      icons: ['binoculars'], color: '#38BDF8', builtin: true },
+    'enemy-spot': { id: 'enemy-spot', label: 'Enemy Spot',   icons: ['target'],     color: '#EF4444', builtin: true },
+    'own-spot':   { id: 'own-spot',   label: 'Own Spot',     icons: ['shield'],     color: '#22C55E', builtin: true },
+    'waypoint':   { id: 'waypoint',   label: 'Waypoint',     icons: ['waypoint'],   color: '#F59E0B', builtin: true },
+    'hazard':     { id: 'hazard',     label: 'Hazard',       icons: ['hazard'],     color: '#F97316', builtin: true },
+    'ref-pt':     { id: 'ref-pt',     label: 'Reference Pt', icons: ['grid'],       color: '#A78BFA', builtin: true }
+  };
+
+  const DEFAULT_SPOT_TYPE = 'obsn-pt';
+
+  /* Spot types get their own id prefix so a spot type can never collide with a
+     unit type, whichever order the two stores are read in. */
+  const CUSTOM_SPOT_TYPES_KEY = 'gis-helper-custom-spot-types-v1';
+  const CUSTOM_SPOT_ID_PREFIX = 'spot-';
+  let customSpotTypes = [];
+
+  function isCustomSpotTypeId(id) {
+    return typeof id === 'string' && id.indexOf(CUSTOM_SPOT_ID_PREFIX) === 0;
+  }
+
+  function newCustomSpotTypeId() {
+    let id;
+    do {
+      id = CUSTOM_SPOT_ID_PREFIX + Math.random().toString(36).slice(2, 8);
+    } while (customSpotTypes.some(t => t.id === id));
+    return id;
+  }
+
+  function getSpotType(id) {
+    if (!id) return null;
+    if (isCustomSpotTypeId(id)) return customSpotTypes.find(t => t.id === id) || null;
+    return BUILTIN_SPOT_TYPES[id] || null;
+  }
+
+  /* Never returns null - falls back to the default spot type */
+  function resolveSpotType(id) {
+    return getSpotType(id) || BUILTIN_SPOT_TYPES[DEFAULT_SPOT_TYPE];
+  }
+
+  function builtinSpotTypeList() {
+    return Object.keys(BUILTIN_SPOT_TYPES).map(k => BUILTIN_SPOT_TYPES[k]);
+  }
+
+  function spotTypeLabel(id) {
+    return resolveSpotType(id).label;
+  }
+
+  /* Spot types older files might carry, mapped onto the built-in set */
+  const LEGACY_SPOT_TYPE_MAP = {
+    'observation': 'obsn-pt',
+    'observation-point': 'obsn-pt',
+    'obs': 'obsn-pt',
+    'enemy': 'enemy-spot',
+    'own': 'own-spot',
+    'friendly': 'own-spot',
+    'reference': 'ref-pt',
+    'point': 'ref-pt'
+  };
+
+  /* Normalise a stored spot point so old records keep rendering correctly */
+  function normaliseSpot(s) {
+    let t = getSpotType(s.type);
+
+    if (!t) {
+      t = getSpotType(LEGACY_SPOT_TYPE_MAP[s.type]) || BUILTIN_SPOT_TYPES[DEFAULT_SPOT_TYPE];
+      s.type = t.id;
+    }
+
+    const allowed = t.icons;
+    if (allowed.indexOf(s.icon) === -1) {
+      const mapped = LEGACY_ICON_MAP[s.icon];
+      s.icon = (mapped && allowed.indexOf(mapped) !== -1) ? mapped : allowed[0];
+    }
+    if (!/^#[0-9a-fA-F]{6}$/.test(String(s.color || ''))) s.color = t.color;
+    if (typeof s.name !== 'string') s.name = '';
+    if (typeof s.details !== 'string') s.details = '';
+
+    /* A spot without a usable position cannot be drawn, so it is dropped by
+       the caller rather than landing on the map at 0,0. */
+    s.lat = Number(s.lat);
+    s.lon = Number(s.lon);
+    return s;
+  }
+
+  function validSpot(s) {
+    return !!s && isFinite(s.lat) && isFinite(s.lon) &&
+           s.lat >= -90 && s.lat <= 90 && s.lon >= -180 && s.lon <= 180;
+  }
+
+  /* Keeps only fields we recognise, with a guaranteed icon list and valid colour */
+  function sanitiseCustomSpotType(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const label = String(raw.label == null ? '' : raw.label).trim().slice(0, 40);
+    if (!label) return null;
+
+    const icons = Array.isArray(raw.icons)
+      ? raw.icons.filter(k => Object.prototype.hasOwnProperty.call(ICON_SVG, k)).slice(0, 3)
+      : [];
+    if (!icons.length) icons.push('waypoint');
+
+    const color = /^#[0-9a-fA-F]{6}$/.test(String(raw.color || '')) ? raw.color : '#38BDF8';
+
+    let id = isCustomSpotTypeId(raw.id) ? raw.id : newCustomSpotTypeId();
+    if (customSpotTypes.some(t => t.id === id)) id = newCustomSpotTypeId();
+
+    return { id, label, icons, color, builtin: false };
+  }
+
+  function saveCustomSpotTypes() {
+    try {
+      localStorage.setItem(CUSTOM_SPOT_TYPES_KEY, JSON.stringify(customSpotTypes));
+    } catch (e) {}
+  }
+
+  function loadCustomSpotTypes() {
+    try {
+      const raw = localStorage.getItem(CUSTOM_SPOT_TYPES_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (!Array.isArray(data)) return;
+      customSpotTypes = data.map(sanitiseCustomSpotType).filter(Boolean);
+    } catch (e) {}
+  }
+
+  function spotTypeInUse(id) {
+    return markings.spots.filter(s => s.type === id).length;
+  }
+
+  /* Create or update a user-defined spot type. Returns the stored record. */
+  function upsertCustomSpotType(fields) {
+    const clean = sanitiseCustomSpotType(fields);
+    if (!clean) return null;
+
+    const existing = fields.id ? customSpotTypes.findIndex(t => t.id === fields.id) : -1;
+    if (existing >= 0) clean.id = customSpotTypes[existing].id;
+
+    if (existing >= 0) customSpotTypes[existing] = clean;
+    else customSpotTypes.push(clean);
+
+    saveCustomSpotTypes();
+    return clean;
+  }
+
+  function deleteCustomSpotType(id) {
+    const idx = customSpotTypes.findIndex(t => t.id === id);
+    if (idx === -1) return { removed: false, moved: 0 };
+
+    const affected = spotTypeInUse(id);
+    const fallback = BUILTIN_SPOT_TYPES[DEFAULT_SPOT_TYPE];
+
+    /* Re-point orphaned spots at the fallback so nothing is silently lost */
+    markings.spots.forEach(s => {
+      if (s.type !== id) return;
+      s.type = fallback.id;
+      s.icon = fallback.icons[0];
+      s.color = fallback.color;
+    });
+
+    customSpotTypes.splice(idx, 1);
+    saveCustomSpotTypes();
+
+    return { removed: true, moved: affected };
+  }
+
+  /* Merges spot types carried inside an imported markings file */
+  function mergeCustomSpotTypes(list) {
+    if (!Array.isArray(list)) return 0;
+    let added = 0;
+    list.forEach(raw => {
+      const clean = sanitiseCustomSpotType(raw);
+      if (!clean) return;
+      if (customSpotTypes.some(t => t.id === clean.id || t.label.toLowerCase() === clean.label.toLowerCase())) return;
+      customSpotTypes.push(clean);
+      added++;
+    });
+    if (added) saveCustomSpotTypes();
+    return added;
+  }
+
+  /* Type <select> markup for the spot placement form and its editor. */
+  function spotTypeOptionsHTML() {
+    let html = builtinSpotTypeList().map(t =>
+      '<option value="' + t.id + '">' + t.label + '</option>'
+    ).join('');
+
+    if (customSpotTypes.length) {
+      html += '<optgroup label="Your spot types">' + customSpotTypes.map(t =>
+        '<option value="' + t.id + '">' + t.label + '</option>'
+      ).join('') + '</optgroup>';
+    }
+    return html;
+  }
+
+  function buildSpotBadgeHTML(iconKey, color) {
+    return '<div class="spot-badge" style="--badge:' + color + ';--badge-soft:' + color + '22;' +
+      '--badge-glow:' + color + '66;--badge-ring:' + color + '15;">' + svgForIcon(iconKey) + '</div>';
+  }
+
+  function spotIconOptions(color, iconKey) {
+    return L.divIcon({
+      className: 'spot-marker-icon',
+      html: buildSpotBadgeHTML(iconKey, color),
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+      popupAnchor: [0, -20]
+    });
+  }
+
   /* Shared badge markup — colour is driven by the --badge custom property */
   function buildBadgeHTML(iconKey, color, small) {
     return '<div class="deploy-badge' + (small ? ' deploy-badge-sm' : '') + '" ' +
@@ -1217,10 +1451,13 @@
 
   const markings = {
     deployments: [],
-    zones: []
+    zones: [],
+    /* Spot points - single positions on the ground rather than units. */
+    spots: []
   };
 
   let deployLayerGroup = L.layerGroup().addTo(map);
+  let spotLayerGroup   = L.layerGroup().addTo(map);
   let zoneLayerGroup   = L.layerGroup().addTo(map);
   let drawLayer        = L.layerGroup().addTo(map);
 
@@ -1884,14 +2121,389 @@
   }
 
   /* ============================================================
+     18b. SPOT POINTS
+     ------------------------------------------------------------
+     A spot point is a named position on the ground with a type, an
+     icon and a colour: an observation point, an enemy sighting, your
+     own position. Unlike a deployment it carries no strength or
+     order of battle - it is a single coordinate, and the latitude /
+     longitude and the ArcGIS XY are what it is for. Every path that
+     shows a spot (its popup, its row in the list, the sheet, the PDF
+     and the picture) prints both.
+     ============================================================ */
+  function spotLetter(i) {
+    const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    return i < 26 ? A[i] : 'S' + (i + 1);
+  }
+
+  /* One row of the spot popup: a muted label over an exact value. */
+  function spotPopupRow(label, value) {
+    return '<div style="display:flex;gap:8px;justify-content:space-between;">' +
+      '<span style="color:#8899A6;">' + label + '</span>' +
+      '<span style="color:#E6EFF5;text-align:right;">' + value + '</span>' +
+    '</div>';
+  }
+
+  function spotPopupHTML(s) {
+    normaliseSpot(s);
+    const u = latLonToUtm(s.lat, s.lon);
+    const name = s.name || spotTypeLabel(s.type);
+
+    return (
+      '<div style="font-family:var(--font);min-width:250px;">' +
+        '<div style="font-size:14px;font-weight:700;color:' + s.color + ';margin-bottom:2px;">' +
+          esc(name) +
+        '</div>' +
+        '<div style="font-size:11px;color:#8899A6;margin-bottom:6px;">' + esc(spotTypeLabel(s.type)) + '</div>' +
+        (s.details
+          ? '<div style="font-size:11.5px;color:#B4C5D0;line-height:1.6;margin-bottom:6px;white-space:pre-wrap;">' +
+              esc(s.details) + '</div>'
+          : '') +
+        '<div style="font-size:11px;line-height:1.75;border-top:1px solid rgba(255,255,255,.08);padding-top:6px;">' +
+          spotPopupRow('Lat / Lon (DD)', esc(fmtDD(s.lat, s.lon))) +
+          spotPopupRow('Lat / Lon (DMS)', esc(fmtDMS(s.lat, s.lon))) +
+          spotPopupRow('ArcGIS XY (UTM)', esc(fmtUtm(u))) +
+          spotPopupRow('MGRS 8-digit', esc(safeMgrs(s.lat, s.lon, 4))) +
+        '</div>' +
+        '<button class="map-edit-btn" data-kind="spot" data-id="' + s.id + '" ' +
+          'style="margin-top:8px;width:100%;padding:6px 10px;border-radius:8px;cursor:pointer;' +
+          'font-size:11.5px;font-weight:600;color:#062A2A;background:' + s.color + ';border:none;">' +
+          'Edit spot point' +
+        '</button>' +
+      '</div>'
+    );
+  }
+
+  function renderSpotMarker(s) {
+    if (!validSpot(normaliseSpot(s))) return null;
+
+    const m = L.marker([s.lat, s.lon], {
+      icon: spotIconOptions(s.color, s.icon),
+      draggable: true,
+      zIndexOffset: 1200
+    }).addTo(spotLayerGroup);
+
+    m.bindPopup(spotPopupHTML(s));
+
+    m.on('dragend', () => {
+      const p = m.getLatLng();
+      s.lat = +p.lat.toFixed(8);
+      s.lon = +p.lng.toFixed(8);
+      saveMarkings();
+      renderSpotList();
+    });
+
+    return m;
+  }
+
+  function redrawSpots() {
+    spotLayerGroup.clearLayers();
+    markings.spots.forEach(s => renderSpotMarker(s));
+    renderLegend();
+  }
+
+  function addSpotFromForm() {
+    if (!state.lat || !state.lon) {
+      setStatus('Click the map or search a location first.', 'warn');
+      return;
+    }
+
+    const type    = $('spot-type').value;
+    const icon    = $('spot-icon').value;
+    const color   = $('spot-color').value;
+    const name    = $('spot-name').value.trim();
+    const details = $('spot-details').value.trim();
+
+    const entry = {
+      id: newId(),
+      type, icon, color,
+      name,
+      details,
+      lat: +state.lat.toFixed(8),
+      lon: +state.lon.toFixed(8),
+      timestamp: Date.now()
+    };
+
+    markings.spots.push(entry);
+    renderSpotMarker(entry);
+    renderLegend();
+    saveMarkings();
+    renderSpotList();
+    updateDataStatus();
+
+    setStatus('Spot point placed: ' + (entry.name || spotTypeLabel(type)) + ' \u00B7 ' +
+      fmtDD(entry.lat, entry.lon), 'ok');
+    clearSpotForm();
+  }
+
+  function removeSpot(id) {
+    markings.spots = markings.spots.filter(s => s.id !== id);
+    redrawSpots();
+    saveMarkings();
+    renderSpotList();
+    updateDataStatus();
+  }
+
+  function clearSpotForm() {
+    $('spot-type').value = DEFAULT_SPOT_TYPE;
+    $('spot-color').value = BUILTIN_SPOT_TYPES[DEFAULT_SPOT_TYPE].color;
+    $('spot-color-hex').value = BUILTIN_SPOT_TYPES[DEFAULT_SPOT_TYPE].color;
+    $('spot-name').value = '';
+    $('spot-details').value = '';
+    populateSpotIconOptions();
+    updateSpotPreview();
+  }
+
+  /* Rebuild the spot type dropdown after the custom list changes */
+  function renderSpotTypeSelect() {
+    const sel = $('spot-type');
+    const current = sel.value;
+    sel.innerHTML = spotTypeOptionsHTML();
+    sel.value = getSpotType(current) ? current : DEFAULT_SPOT_TYPE;
+  }
+
+  /* Rebuild the icon dropdown so it only offers icons valid for this spot type */
+  function populateSpotIconOptions() {
+    const allowed = resolveSpotType($('spot-type').value).icons;
+    const sel = $('spot-icon');
+    const previous = sel.value;
+
+    sel.innerHTML = allowed.map(key =>
+      '<option value="' + key + '">' + (ICON_LABEL[key] || key) + '</option>'
+    ).join('');
+
+    sel.value = allowed.indexOf(previous) !== -1 ? previous : allowed[0];
+  }
+
+  function applySpotTypeColour() {
+    const preset = resolveSpotType($('spot-type').value).color;
+    $('spot-color').value = preset;
+    $('spot-color-hex').value = preset;
+  }
+
+  function updateSpotPreview() {
+    const type  = $('spot-type').value;
+    const icon  = $('spot-icon').value;
+    const color = $('spot-color').value;
+    const u = resolveSpotType(type);
+
+    const preview = $('spot-preview');
+    if (preview) preview.innerHTML = buildSpotBadgeHTML(icon, color);
+
+    const hint = $('spot-preview-hint');
+    if (hint) {
+      hint.innerHTML = '<b>' + u.label + '</b> \u00B7 ' +
+        (ICON_LABEL[icon] || icon) + ' icon' +
+        (u.icons.length > 1 ? ' (' + u.icons.length + ' available)' : '');
+    }
+  }
+
+  /* ---- spot list ordering ---- */
+  function moveSpotTo(id, targetIndex) {
+    const list = markings.spots;
+    const from = list.findIndex(s => s.id === id);
+    if (from === -1) return false;
+
+    const to = Math.max(0, Math.min(list.length - 1, targetIndex));
+    if (to === from) return false;
+
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
+    return true;
+  }
+
+  function commitSpotOrder(message) {
+    saveMarkings();
+    renderSpotList();
+    redrawSpots();
+    if (message) setStatus(message, 'ok');
+  }
+
+  function reorderSpots(srcId, targetId, insertAfter) {
+    const list = markings.spots;
+    const to = list.findIndex(s => s.id === targetId);
+    if (to === -1) return;
+
+    const insertAt = insertAfter ? to + 1 : to;
+    const from = list.findIndex(s => s.id === srcId);
+    if (from < insertAt) moveSpotTo(srcId, insertAt - 1);
+    else moveSpotTo(srcId, insertAt);
+    commitSpotOrder('Spot order updated');
+  }
+
+  function nudgeSpot(id, dir) {
+    const i = markings.spots.findIndex(s => s.id === id);
+    if (i === -1) return;
+    if (!moveSpotTo(id, i + dir)) return;
+
+    commitSpotOrder();
+    const next = $('spot-list').querySelector('.deploy-item[data-id="' + id + '"]');
+    if (next) next.focus();
+  }
+
+  function duplicateSpot(id) {
+    const idx = markings.spots.findIndex(s => s.id === id);
+    if (idx === -1) return;
+
+    const src = markings.spots[idx];
+    const copy = Object.assign({}, src, {
+      id: newId(),
+      name: src.name ? src.name + ' (copy)' : '',
+      timestamp: Date.now()
+    });
+
+    markings.spots.splice(idx + 1, 0, copy);
+    renderSpotMarker(copy);
+    renderLegend();
+    saveMarkings();
+    renderSpotList();
+    updateDataStatus();
+
+    const next = $('spot-list').querySelector('.deploy-item[data-id="' + copy.id + '"]');
+    if (next) next.focus();
+
+    setStatus('Duplicated spot: ' + (copy.name || spotTypeLabel(copy.type)), 'ok');
+  }
+
+  /* Rows reuse the deployment row's own class names, so a spot list row looks
+     and behaves exactly like a deployment row without a second set of rules. */
+  function renderSpotList() {
+    const el = $('spot-list');
+    if (!markings.spots.length) {
+      el.innerHTML = '<div class="deploy-empty">No spot points marked yet. ' +
+        'Click the map, pick a type and press Place on map.</div>';
+      return;
+    }
+
+    el.innerHTML = markings.spots.map((s, i) => {
+      normaliseSpot(s);
+      const name = s.name || spotTypeLabel(s.type);
+      const u = latLonToUtm(s.lat, s.lon);
+      const meta = [
+        Number(s.lat).toFixed(5) + ', ' + Number(s.lon).toFixed(5),
+        u.zone + u.hemisphere + ' ' + fmtInt(u.easting) + 'E ' + fmtInt(u.northing) + 'N'
+      ];
+      return (
+        '<div class="deploy-item" data-id="' + s.id + '" draggable="true" tabindex="0" role="listitem"' +
+        ' aria-label="' + (i + 1) + '. ' + esc(name) + ' \u2014 ' + esc(spotTypeLabel(s.type)) + '">' +
+          '<span class="deploy-grip" aria-hidden="true" title="Drag to reorder">' + UI_GLYPH.grip + '</span>' +
+          '<div class="deploy-icon-mark" style="background:' + s.color + '22;border-color:' + s.color + ';color:' + s.color + ';">' +
+            svgForIcon(s.icon) +
+          '</div>' +
+          '<div class="deploy-info">' +
+            '<div class="deploy-name">' + esc(name) + '</div>' +
+            '<div class="deploy-meta">' + esc(spotTypeLabel(s.type)) + ' \u00B7 ' + meta.join(' \u00B7 ') + '</div>' +
+          '</div>' +
+          '<div class="deploy-row-actions">' +
+            '<button class="deploy-edit" title="Edit details" aria-label="Edit ' + esc(name) + '" data-id="' + s.id + '">' + UI_GLYPH.edit + '</button>' +
+            '<button class="deploy-dup" title="Duplicate" aria-label="Duplicate ' + esc(name) + '" data-id="' + s.id + '">' + UI_GLYPH.copy + '</button>' +
+            '<button class="deploy-del" title="Remove" aria-label="Remove ' + esc(name) + '" data-id="' + s.id + '">' + UI_GLYPH.trash + '</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    wireSpotRowInteractions(el);
+  }
+
+  function wireSpotRowInteractions(el) {
+    const items = Array.from(el.querySelectorAll('.deploy-item'));
+
+    /* ---- drag to reorder ---- */
+    items.forEach(item => {
+      item.addEventListener('dragstart', e => {
+        dragSrcId = item.dataset.id;
+        dragDidMove = false;
+        item.classList.add('dragging');
+        if (e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          try { e.dataTransfer.setData('text/plain', dragSrcId); } catch (err) {}
+        }
+        startDragAutoScroll(el);
+      });
+
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        clearDropMarkers(el);
+        stopDragAutoScroll();
+        setTimeout(() => { dragDidMove = false; dragSrcId = null; }, 0);
+      });
+
+      item.addEventListener('dragover', e => {
+        if (!dragSrcId || item.dataset.id === dragSrcId) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        if (!dragDidMove) dragDidMove = true;
+
+        const after = isBelowMidpoint(e, item);
+        clearDropMarkers(el);
+        item.classList.add(after ? 'drop-after' : 'drop-before');
+      });
+
+      item.addEventListener('dragleave', () => {
+        item.classList.remove('drop-before', 'drop-after');
+      });
+
+      item.addEventListener('drop', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const src = dragSrcId;
+        const after = isBelowMidpoint(e, item);
+        clearDropMarkers(el);
+        if (src && src !== item.dataset.id) reorderSpots(src, item.dataset.id, after);
+        dragSrcId = null;
+      });
+    });
+
+    /* ---- click a row to fly to it ---- */
+    items.forEach(item => {
+      item.addEventListener('click', e => {
+        if (e.target.closest('.deploy-del') || e.target.closest('.deploy-dup') ||
+            e.target.closest('.deploy-edit') || e.target.closest('.deploy-grip')) return;
+        if (dragDidMove) return;
+        const s = markings.spots.find(x => x.id === item.dataset.id);
+        if (s) map.flyTo([s.lat, s.lon], Math.max(map.getZoom(), 16), { duration: 0.6 });
+      });
+
+      item.addEventListener('keydown', e => {
+        if (e.target.closest('button')) return;
+
+        if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          e.preventDefault();
+          nudgeSpot(item.dataset.id, e.key === 'ArrowUp' ? -1 : 1);
+          return;
+        }
+
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const s = markings.spots.find(x => x.id === item.dataset.id);
+          if (s) map.flyTo([s.lat, s.lon], Math.max(map.getZoom(), 16), { duration: 0.6 });
+        }
+      });
+    });
+
+    el.querySelectorAll('.deploy-dup').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); duplicateSpot(btn.dataset.id); });
+    });
+
+    el.querySelectorAll('.deploy-edit').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); openEditSpot(btn.dataset.id); });
+    });
+
+    el.querySelectorAll('.deploy-del').forEach(btn => {
+      btn.addEventListener('click', e => { e.stopPropagation(); removeSpot(btn.dataset.id); });
+    });
+  }
+
+  /* ============================================================
      EDIT A PLACED MARKING
      ============================================================
-     One dialog edits either a deployment or a zone. Fields that only make
-     sense for one of the two are hidden rather than disabled, so the dialog
-     never shows a control that would be ignored on save. */
+     One dialog edits a deployment, a spot point or a zone. Fields that
+     only make sense for one of the three are hidden rather than disabled,
+     so the dialog never shows a control that would be ignored on save. */
 
   const editModal    = $('edit-modal');
-  /* What is being edited: 'deployment' or 'zone', plus the stored id. */
+  /* What is being edited: 'deployment', 'spot' or 'zone', plus the id. */
   let editTarget     = null;
 
   /* Type <select> markup, shared by the placement form and the editor. */
@@ -1919,17 +2531,39 @@
     sel.value = allowed.indexOf(previous) !== -1 ? previous : allowed[0];
   }
 
+  /* The same, for a spot point's own type list and icon dropdown. */
+  function refreshEditSpotIcons() {
+    const sel = $('edit-spot-icon');
+    const allowed = resolveSpotType($('edit-spot-type').value).icons;
+    const previous = sel.value;
+    sel.innerHTML = allowed.map(key =>
+      '<option value="' + key + '">' + (ICON_LABEL[key] || key) + '</option>'
+    ).join('');
+    sel.value = allowed.indexOf(previous) !== -1 ? previous : allowed[0];
+  }
+
   function updateEditPreview() {
     const color = $('edit-color').value;
     const name  = $('edit-name').value.trim() || 'No name given';
-    const isZone = editTarget && editTarget.kind === 'zone';
+    const kind  = editTarget ? editTarget.kind : 'deployment';
 
-    if (isZone) {
+    if (kind === 'zone') {
       /* A zone has no unit type, so the preview is just its fill and name. */
       $('edit-preview').innerHTML =
         '<div style="width:26px;height:26px;border-radius:6px;background:' + color +
         ';border:2px solid ' + color + ';"></div>';
       $('edit-preview-hint').innerHTML = '<b>' + name + '</b>';
+      return;
+    }
+
+    if (kind === 'spot') {
+      const icon = $('edit-spot-icon').value;
+      $('edit-preview').innerHTML = buildSpotBadgeHTML(icon, color);
+      $('edit-preview-hint').innerHTML = [
+        '<b>' + resolveSpotType($('edit-spot-type').value).label + '</b>',
+        (ICON_LABEL[icon] || icon) + ' icon',
+        name
+      ].join(' \u00B7 ');
       return;
     }
 
@@ -1942,23 +2576,34 @@
     ].join(' \u00B7 ');
   }
 
-  /* Shows or hides the field groups that belong to one kind of marking.
-     The stylesheet hides both groups by default, so the shown one needs an
-     explicit display value rather than being reset back to the default. */
+  /* Shows or hides the field groups that belong to one kind of marking. A group
+     can name more than one kind (the Details note is shared by zones and spot
+     points), so visibility is decided from every kind the group carries. The
+     stylesheet hides the groups by default, so a shown one needs an explicit
+     display value rather than being reset back to the default. */
   function setEditMode(kind) {
     const isZone = kind === 'zone';
+    const isSpot = kind === 'spot';
 
-    editModal.querySelectorAll('.edit-only-zone, .edit-only-deploy').forEach(el => {
-      const show = el.classList.contains('edit-only-zone') ? isZone : !isZone;
+    editModal.querySelectorAll('.edit-only-deploy, .edit-only-spot, .edit-only-zone').forEach(el => {
+      const kinds = ['deploy', 'spot', 'zone'].filter(k => el.classList.contains('edit-only-' + k));
+      const show = !kinds.length || kinds.indexOf(isSpot ? 'spot' : (isZone ? 'zone' : 'deploy')) !== -1;
       el.style.display = show ? (el.classList.contains('edit-grid') ? 'grid' : 'block') : 'none';
     });
 
-    $('edit-title').textContent = isZone ? 'Edit zone' : 'Edit deployment';
-    $('edit-subtitle').textContent = isZone
-      ? 'Rename the zone or change how it is drawn on the map.'
-      : 'Change the unit, its details, or where it sits in the list.';
-    $('edit-name-label').textContent = isZone ? 'Zone name' : 'Commander';
-    $('edit-name').placeholder = isZone ? 'e.g. Alpha Sector' : 'Name / callsign';
+    $('edit-title').textContent = isSpot ? 'Edit spot point' : (isZone ? 'Edit zone' : 'Edit deployment');
+    $('edit-subtitle').textContent = isSpot
+      ? 'Rename the point, change its type, or move it in the list.'
+      : (isZone
+          ? 'Rename the zone or change how it is drawn on the map.'
+          : 'Change the unit, its details, or where it sits in the list.');
+    $('edit-name-label').textContent = isSpot ? 'Spot name' : (isZone ? 'Zone name' : 'Commander');
+    $('edit-name').placeholder = isSpot
+      ? 'e.g. Bridge crossing'
+      : (isZone ? 'e.g. Alpha Sector' : 'Name / callsign');
+    $('edit-details').placeholder = isSpot
+      ? 'What this point is — what was seen, when, and from where…'
+      : 'What this zone is for — purpose, phase line, hazard, tasking…';
   }
 
   function openEditDeployment(id) {
@@ -1980,6 +2625,28 @@
     $('edit-vehicles').value = d.vehicles || '';
     $('edit-arms').value = d.arms || '';
     $('edit-equip').value = d.equip || '';
+    updateEditPreview();
+
+    openModal(editModal);
+    setTimeout(() => $('edit-name').focus(), 80);
+  }
+
+  function openEditSpot(id) {
+    const s = markings.spots.find(x => x.id === id);
+    if (!s) return;
+    normaliseSpot(s);
+
+    editTarget = { kind: 'spot', id };
+    setEditMode('spot');
+
+    $('edit-spot-type').innerHTML = spotTypeOptionsHTML();
+    $('edit-spot-type').value = s.type;
+    refreshEditSpotIcons();
+    $('edit-spot-icon').value = s.icon;
+    $('edit-color').value = s.color;
+    $('edit-color-hex').value = s.color;
+    $('edit-name').value = s.name || '';
+    $('edit-details').value = s.details || '';
     updateEditPreview();
 
     openModal(editModal);
@@ -2036,6 +2703,25 @@
       return;
     }
 
+    if (editTarget.kind === 'spot') {
+      const s = markings.spots.find(x => x.id === editTarget.id);
+      if (!s) { closeEditModal(); return; }
+
+      s.type    = $('edit-spot-type').value;
+      s.icon    = $('edit-spot-icon').value;
+      s.color   = color;
+      s.name    = name;
+      s.details = $('edit-details').value.trim();
+
+      redrawSpots();
+      saveMarkings();
+      renderSpotList();
+      updateDataStatus();
+      closeEditModal();
+      setStatus('Spot point updated: ' + (s.name || spotTypeLabel(s.type)), 'ok');
+      return;
+    }
+
     const d = markings.deployments.find(x => x.id === editTarget.id);
     if (!d) { closeEditModal(); return; }
 
@@ -2066,6 +2752,8 @@
 
   $('edit-type').addEventListener('change', () => { refreshEditIcons(); updateEditPreview(); });
   $('edit-icon').addEventListener('change', updateEditPreview);
+  $('edit-spot-type').addEventListener('change', () => { refreshEditSpotIcons(); updateEditPreview(); });
+  $('edit-spot-icon').addEventListener('change', updateEditPreview);
   $('edit-color').addEventListener('input', () => {
     $('edit-color-hex').value = $('edit-color').value;
     updateEditPreview();
@@ -2097,6 +2785,7 @@
     if (!btn) return;
     e.preventDefault();
     if (btn.dataset.kind === 'zone') openEditZone(btn.dataset.id);
+    else if (btn.dataset.kind === 'spot') openEditSpot(btn.dataset.id);
     else openEditDeployment(btn.dataset.id);
   });
 
@@ -2107,8 +2796,9 @@
     if (isDrawingZone) stopZoneDrawing(false);
 
     const dep = markings.deployments.length;
+    const spo = markings.spots.length;
     const zon = markings.zones.length;
-    const count = dep + zon;
+    const count = dep + spo + zon;
     if (!count) {
       setStatus('There is nothing to clear.', 'warn');
       return;
@@ -2116,30 +2806,34 @@
 
     const counts = [];
     if (dep) counts.push('<span><b>' + dep + '</b> deployment' + (dep === 1 ? '' : 's') + '</span>');
+    if (spo) counts.push('<span><b>' + spo + '</b> spot point' + (spo === 1 ? '' : 's') + '</span>');
     if (zon) counts.push('<span><b>' + zon + '</b> zone' + (zon === 1 ? '' : 's') + '</span>');
 
     const ok = await askConfirm({
       title: 'Clear all operational data?',
       subtitle: 'This cannot be undone.',
       html:
-        '<p>Every deployment and zone is removed from the map, from the sidebar lists and from this browser.</p>' +
+        '<p>Every deployment, spot point and zone is removed from the map, from the sidebar lists and from this browser.</p>' +
         '<div class="confirm-counts">' + counts.join('') + '</div>',
-      note: 'Your <b>map indicator</b> and <b>custom unit types</b> are kept.',
+      note: 'Your <b>map indicator</b>, your <b>custom unit types</b> and your <b>custom spot types</b> are kept.',
       confirmLabel: 'Clear everything'
     });
     if (!ok) return;
 
     markings.deployments = [];
     markings.zones = [];
+    markings.spots = [];
     drawLayer.clearLayers();
     drawVertices = [];
     redrawDeployments();
+    redrawSpots();
     redrawZones();
     saveMarkings();
     renderDeployList();
+    renderSpotList();
     renderZoneList();
     updateDataStatus();
-    setStatus('Cleared all deployments and zones.', 'warn');
+    setStatus('Cleared all deployments, spot points and zones.', 'warn');
   }
 
   $('data-clear-all-btn').addEventListener('click', clearAllMarkings);
@@ -2156,7 +2850,7 @@
       legendEl.remove();
       legendEl = null;
     }
-    const hasMarkings = markings.deployments.length || markings.zones.length;
+    const hasMarkings = markings.deployments.length || markings.spots.length || markings.zones.length;
     if (!hasMarkings) return;
 
     legendEl = L.control({ position: 'bottomleft' });
@@ -2176,6 +2870,18 @@
 
       if (markings.deployments.length > 12)
         html += '<li><span style="color:var(--muted);font-style:italic;">+' + (markings.deployments.length - 12) + ' more\u2026</span></li>';
+
+      markings.spots.slice(0, 12).forEach(s => {
+        normaliseSpot(s);
+        html += '<li>' +
+          '<span class="legend-icon" style="color:' + s.color + ';">' + svgForIcon(s.icon) + '</span>' +
+          '<span class="legend-swatch spot-swatch" style="background:' + s.color + ';"></span>' +
+          '<span>' + esc(s.name || spotTypeLabel(s.type)) + '</span>' +
+        '</li>';
+      });
+
+      if (markings.spots.length > 12)
+        html += '<li><span style="color:var(--muted);font-style:italic;">+' + (markings.spots.length - 12) + ' more spot points\u2026</span></li>';
 
       markings.zones.forEach(z => {
         html += '<li>' +
@@ -2199,14 +2905,16 @@
      never drift apart in shape. */
   function buildSessionPayload() {
     return {
-      version: 3,
+      version: 4,
       exportedAt: new Date().toISOString(),
       app: 'GIS Helper',
       customUnitTypes: customUnitTypes,
+      customSpotTypes: customSpotTypes,
       indicator: validIndicator(savedIndicator)
         ? { lat: savedIndicator.lat, lon: savedIndicator.lon, name: savedIndicator.name || null }
         : null,
       deployments: markings.deployments,
+      spotPoints: markings.spots,
       zones: markings.zones
     };
   }
@@ -2218,6 +2926,7 @@
 
   function hasAnyData() {
     return markings.deployments.length > 0 ||
+           markings.spots.length > 0 ||
            markings.zones.length > 0 ||
            validIndicator(savedIndicator);
   }
@@ -2232,6 +2941,7 @@
       if (!raw) return false;
       const data = JSON.parse(raw);
       if (Array.isArray(data.deployments)) markings.deployments = data.deployments.map(normaliseDeployment);
+      if (Array.isArray(data.spotPoints))  markings.spots = data.spotPoints.map(normaliseSpot).filter(validSpot);
       if (Array.isArray(data.zones))       markings.zones = data.zones;
       if (validIndicator(data.indicator)) {
         savedIndicator = { lat: +data.indicator.lat, lon: +data.indicator.lon, name: data.indicator.name || '' };
@@ -2251,8 +2961,10 @@
 
   function applyMarkingsToMap() {
     redrawDeployments();
+    redrawSpots();
     redrawZones();
     renderDeployList();
+    renderSpotList();
     renderZoneList();
     updateDataStatus();
   }
@@ -2265,7 +2977,7 @@
 
     const statusEl = $('data-status');
     const textEl   = $('data-status-text');
-    const count    = markings.deployments.length + markings.zones.length;
+    const count    = markings.deployments.length + markings.spots.length + markings.zones.length;
     if (count === 0 && !validIndicator(savedIndicator)) {
       statusEl.classList.remove('has-data');
       textEl.textContent = 'No saved data';
@@ -2340,6 +3052,7 @@
       $('import-file-name').textContent = fileName;
       $('import-summary').innerHTML =
         '<span><b>' + counts.deployments + '</b> deployment' + (counts.deployments === 1 ? '' : 's') + '</span>' +
+        '<span><b>' + counts.spots + '</b> spot point' + (counts.spots === 1 ? '' : 's') + '</span>' +
         '<span><b>' + counts.zones + '</b> zone' + (counts.zones === 1 ? '' : 's') + '</span>' +
         '<span><b>' + (counts.indicator ? '1' : '0') + '</b> map indicator</span>';
       openModal(importModal);
@@ -2411,11 +3124,14 @@
       }
 
       const deployments = Array.isArray(data.deployments) ? data.deployments : [];
+      /* Older files carry spots under their own name, so both spellings are read. */
+      const spots       = Array.isArray(data.spotPoints)  ? data.spotPoints
+                        : (Array.isArray(data.spots) ? data.spots : []);
       const zones       = Array.isArray(data.zones)       ? data.zones       : [];
       const indicator   = validIndicator(data.indicator)  ? data.indicator   : null;
 
-      if (!deployments.length && !zones.length && !indicator) {
-        setStatus('That file has no deployments, zones or map indicator to import.', 'warn');
+      if (!deployments.length && !spots.length && !zones.length && !indicator) {
+        setStatus('That file has no deployments, spot points, zones or map indicator to import.', 'warn');
         return;
       }
 
@@ -2424,18 +3140,21 @@
       if (hasAnyData()) {
         mode = await askImportMode(file.name, {
           deployments: deployments.length,
+          spots: spots.length,
           zones: zones.length,
           indicator: !!indicator
         });
         if (!mode) { setStatus('Import cancelled.', 'warn'); return; }
       }
 
-      // Register any custom unit types the file carries before reading deployments,
-      // so deployments referencing them resolve to the right label / icon / colour
-      const addedTypes = mergeCustomTypes(data.customUnitTypes);
+      // Register any custom types the file carries before reading the markings,
+      // so records referencing them resolve to the right label / icon / colour
+      const addedTypes = mergeCustomTypes(data.customUnitTypes) +
+                         mergeCustomSpotTypes(data.customSpotTypes);
 
       if (mode === 'replace') {
         markings.deployments = [];
+        markings.spots = [];
         markings.zones = [];
       }
 
@@ -2444,6 +3163,14 @@
         normaliseDeployment(d);
       });
       markings.deployments = markings.deployments.concat(deployments);
+
+      const usableSpots = spots
+        .map(s => {
+          if (!s.id) s.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+          return normaliseSpot(s);
+        })
+        .filter(validSpot);
+      markings.spots = markings.spots.concat(usableSpots);
 
       zones.forEach(z => {
         if (!z.id) z.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -2459,12 +3186,16 @@
       applyMarkingsToMap();
       saveMarkings();
       renderTypeSelect();
+      renderSpotTypeSelect();
       populateIconOptions();
+      populateSpotIconOptions();
       updateDeployPreview();
+      updateSpotPreview();
 
       setStatus(
         (mode === 'replace' ? 'Replaced' : 'Imported') + ' with ' +
-        deployments.length + ' deployment' + (deployments.length === 1 ? '' : 's') + ' and ' +
+        deployments.length + ' deployment' + (deployments.length === 1 ? '' : 's') + ', ' +
+        usableSpots.length + ' spot point' + (usableSpots.length === 1 ? '' : 's') + ' and ' +
         zones.length + ' zone' + (zones.length === 1 ? '' : 's') +
         (mode === 'replace' && indicator ? ' \u00B7 map indicator restored' : '') +
         (addedTypes ? ' \u00B7 ' + addedTypes + ' custom type' + (addedTypes > 1 ? 's' : '') + ' added' : '') + '.', 'ok');
@@ -2473,27 +3204,230 @@
   }
 
   /* ============================================================
+     21b. GEOJSON EXPORT
+     ------------------------------------------------------------
+     The session JSON is this tool's own file: it re-imports exactly.
+     GeoJSON is the same plan in the language every GIS already
+     speaks - one point per deployment, one point per spot point, one
+     polygon per zone - with the coordinates the app already prints
+     (latitude / longitude, the ArcGIS XY and the MGRS) carried as
+     attributes, so an attribute table has them without a second
+     conversion. Positions are WGS 84, longitude first, as RFC 7946
+     requires.
+     ============================================================ */
+  function geoJsonPosition(lat, lon) {
+    /* GeoJSON is longitude first, and latitude second. */
+    return [+Number(lon).toFixed(8), +Number(lat).toFixed(8)];
+  }
+
+  /* The coordinate block every feature carries, in the same terms the
+     dashboard and the printed sheet use. */
+  function geoJsonCoordinates(lat, lon) {
+    const u = latLonToUtm(lat, lon);
+    return {
+      latitude: +Number(lat).toFixed(8),
+      longitude: +Number(lon).toFixed(8),
+      dms: fmtDMS(lat, lon),
+      utmZone: u.zone + u.hemisphere,
+      utmEasting: Math.round(u.easting),
+      utmNorthing: Math.round(u.northing),
+      mgrs: safeMgrs(lat, lon, 4)
+    };
+  }
+
+  /* A 2-D bbox (min lon, min lat, max lon, max lat) so a GIS can zoom to the
+     data the moment it is opened. */
+  function geoJsonBbox(features) {
+    let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity;
+
+    const push = (lon, lat) => {
+      if (!isFinite(lon) || !isFinite(lat)) return;
+      minLon = Math.min(minLon, lon); maxLon = Math.max(maxLon, lon);
+      minLat = Math.min(minLat, lat); maxLat = Math.max(maxLat, lat);
+    };
+
+    features.forEach(f => {
+      if (f.geometry.type === 'Point') push(f.geometry.coordinates[0], f.geometry.coordinates[1]);
+      else f.geometry.coordinates.forEach(ring => ring.forEach(p => push(p[0], p[1])));
+    });
+
+    if (minLon === Infinity) return null;
+
+    /* Six decimals, rounded OUTWARD - down for the minimums and up for the
+       maximums. Rounding to nearest would pull the box in past the extreme
+       coordinate (40.70672603 becomes 40.706726), so the point the box exists
+       to contain would sit a fraction outside it. */
+    const down = n => Math.floor(n * 1e6) / 1e6;
+    const up   = n => Math.ceil(n * 1e6) / 1e6;
+    return [down(minLon), down(minLat), up(maxLon), up(maxLat)];
+  }
+
+  function buildGeoJson() {
+    const features = [];
+
+    if (validIndicator(savedIndicator)) {
+      features.push({
+        type: 'Feature',
+        id: 'map-indicator',
+        geometry: { type: 'Point', coordinates: geoJsonPosition(savedIndicator.lat, savedIndicator.lon) },
+        properties: Object.assign({
+          kind: 'map-indicator',
+          label: savedIndicator.name || 'Map indicator'
+        }, geoJsonCoordinates(savedIndicator.lat, savedIndicator.lon))
+      });
+    }
+
+    markings.deployments.forEach((d, i) => {
+      normaliseDeployment(d);
+      features.push({
+        type: 'Feature',
+        id: d.id,
+        geometry: { type: 'Point', coordinates: geoJsonPosition(d.lat, d.lon) },
+        properties: Object.assign({
+          kind: 'deployment',
+          /* The number matches the pin on the sheet and the PDF table. */
+          ref: i + 1,
+          label: d.commander || unitLabel(d.type),
+          type: d.type,
+          typeLabel: unitLabel(d.type),
+          icon: d.icon,
+          color: d.color,
+          commander: d.commander || '',
+          troops: d.troops || 0,
+          vehicles: d.vehicles || '',
+          armsAmmo: d.arms || '',
+          equipment: d.equip || ''
+        }, geoJsonCoordinates(d.lat, d.lon))
+      });
+    });
+
+    markings.spots.forEach((s, i) => {
+      normaliseSpot(s);
+      if (!validSpot(s)) return;
+      features.push({
+        type: 'Feature',
+        id: s.id,
+        geometry: { type: 'Point', coordinates: geoJsonPosition(s.lat, s.lon) },
+        properties: Object.assign({
+          kind: 'spot-point',
+          /* The letter matches the circle on the picture and the Spot Points table. */
+          ref: spotLetter(i),
+          label: s.name || spotTypeLabel(s.type),
+          name: s.name || '',
+          spotType: s.type,
+          spotTypeLabel: spotTypeLabel(s.type),
+          icon: s.icon,
+          color: s.color,
+          details: s.details || ''
+        }, geoJsonCoordinates(s.lat, s.lon))
+      });
+    });
+
+    markings.zones.forEach(z => {
+      const vs = (z.vertices || []).filter(v => v && isFinite(v.lat) && isFinite(v.lng));
+      if (vs.length < 3) return;
+
+      const ring = vs.map(v => geoJsonPosition(v.lat, v.lng));
+      /* A GeoJSON polygon ring is closed: the first position is repeated. */
+      ring.push(ring[0].slice());
+
+      const centre = zoneCentre(z);
+      const props = {
+        kind: 'zone',
+        label: z.name,
+        name: z.name,
+        details: z.details || '',
+        color: z.color,
+        opacity: z.opacity,
+        areaM2: Math.round(z.areaM2 || 0),
+        area: formatArea(z.areaM2 || 0),
+        vertexCount: vs.length
+      };
+
+      /* A polygon's own coordinates are its ring, so the block above would be
+         ambiguous on it; the centre gets its own clearly-named fields. */
+      if (centre) {
+        const c = geoJsonCoordinates(centre.lat, centre.lon);
+        props.centreLatitude     = c.latitude;
+        props.centreLongitude    = c.longitude;
+        props.centreUtmZone      = c.utmZone;
+        props.centreUtmEasting   = c.utmEasting;
+        props.centreUtmNorthing  = c.utmNorthing;
+        props.centreMgrs         = c.mgrs;
+      }
+
+      features.push({
+        type: 'Feature',
+        id: z.id,
+        geometry: { type: 'Polygon', coordinates: [ring] },
+        properties: props
+      });
+    });
+
+    const collection = { type: 'FeatureCollection', features: features };
+    const bbox = geoJsonBbox(features);
+    if (bbox) collection.bbox = bbox;
+    return collection;
+  }
+
+  function exportGeoJsonFile() {
+    if (!hasAnyData()) {
+      setStatus('Nothing to export \u2014 add a map indicator, deployment, spot point or zone first.', 'warn');
+      return;
+    }
+
+    const collection = buildGeoJson();
+    if (!collection.features.length) {
+      setStatus('Nothing to export in GeoJSON \u2014 every marking needs a usable position.', 'warn');
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(collection, null, 2)], { type: 'application/geo+json' });
+    downloadBlob(blob, 'gis-helper-features-' + new Date().toISOString().slice(0, 10) + '.geojson');
+    setStatus('GeoJSON exported: ' + collection.features.length + ' feature' +
+      (collection.features.length === 1 ? '' : 's') + ' \u2014 WGS 84, longitude first.', 'ok');
+  }
+
+  /* ============================================================
      22. UI WIRING
      ============================================================ */
   const deployToggle = $('deploy-toggle');
+  const spotToggle   = $('spot-toggle');
   const zoneToggle   = $('zone-toggle');
   const deployCard   = $('deploy-card');
+  const spotCard     = $('spot-card');
   const zoneCard     = $('zone-card');
   const dataCard     = $('data-card');
 
-  function togglePanel(btn, card) {
+  /* Bring a card the user just asked for into view and put the caret in its
+     first control, so pressing Deploy / Spots / Zones lands on its own panel
+     instead of leaving them to scroll for it. */
+  function revealPanel(card, focusId) {
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    card.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'start' });
+
+    const el = focusId ? $(focusId) : null;
+    if (!el || !el.focus) return;
+    /* preventScroll leaves the smooth scroll above in charge of the movement */
+    try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+  }
+
+  function togglePanel(btn, card, focusId) {
     const isOpen = card.classList.contains('open');
-    [deployCard, zoneCard, dataCard].forEach(c => c.classList.remove('open'));
-    deployToggle.classList.remove('active');
-    zoneToggle.classList.remove('active');
+    [deployCard, spotCard, zoneCard, dataCard].forEach(c => c.classList.remove('open'));
+    [deployToggle, spotToggle, zoneToggle].forEach(b => b.classList.remove('active'));
     if (!isOpen) {
       card.classList.add('open');
       btn.classList.add('active');
+      revealPanel(card, focusId);
+    } else {
+      btn.focus();
     }
   }
 
-  deployToggle.addEventListener('click', () => togglePanel(deployToggle, deployCard));
-  zoneToggle.addEventListener('click',   () => togglePanel(zoneToggle, zoneCard));
+  deployToggle.addEventListener('click', () => togglePanel(deployToggle, deployCard, 'deploy-type'));
+  spotToggle.addEventListener('click',   () => togglePanel(spotToggle, spotCard, 'spot-type'));
+  zoneToggle.addEventListener('click',   () => togglePanel(zoneToggle, zoneCard, 'zone-name'));
 
   $('deploy-add-btn').addEventListener('click', addDeploymentFromForm);
   $('deploy-clear-btn').addEventListener('click', clearDeployForm);
@@ -2505,20 +3439,34 @@
   });
   $('deploy-icon').addEventListener('change', updateDeployPreview);
 
+  $('spot-add-btn').addEventListener('click', addSpotFromForm);
+  $('spot-clear-btn').addEventListener('click', clearSpotForm);
+  $('spot-type').addEventListener('change', () => {
+    populateSpotIconOptions();
+    applySpotTypeColour();
+    updateSpotPreview();
+  });
+  $('spot-icon').addEventListener('change', updateSpotPreview);
+
   function syncColor(input, hexInput) {
+    const refresh = () => {
+      if (input === $('deploy-color')) updateDeployPreview();
+      else if (input === $('spot-color')) updateSpotPreview();
+    };
     input.addEventListener('input', () => {
       hexInput.value = input.value;
-      if (input === $('deploy-color')) updateDeployPreview();
+      refresh();
     });
     hexInput.addEventListener('input', () => {
       const v = hexInput.value.trim();
       if (/^#[0-9a-fA-F]{6}$/.test(v)) {
         input.value = v;
-        if (input === $('deploy-color')) updateDeployPreview();
+        refresh();
       }
     });
   }
   syncColor($('deploy-color'), $('deploy-color-hex'));
+  syncColor($('spot-color'),   $('spot-color-hex'));
   syncColor($('zone-color'),   $('zone-color-hex'));
 
   $('zone-draw-btn').addEventListener('click', () => {
@@ -2557,6 +3505,7 @@
 
   $('data-copy-btn').addEventListener('click', copyAllData);
   $('data-export-btn').addEventListener('click', exportMarkingsFile);
+  $('data-geojson-btn').addEventListener('click', exportGeoJsonFile);
   $('data-import-btn').addEventListener('click', () => { $('data-import-file').click(); });
 
   $('data-import-file').addEventListener('change', (e) => {
@@ -2837,6 +3786,261 @@
   });
 
   /* ============================================================
+     24. SPOT TYPE MANAGER UI
+     ------------------------------------------------------------
+     The same manager as the unit types, against the spot type store:
+     the six built-ins, then whatever the user has created.
+     ============================================================ */
+  const spotTypesModal     = document.getElementById('spot-types-modal');
+  const spotTypesClose     = document.getElementById('spot-types-close');
+  const spotTypesCloseBtn  = document.getElementById('spot-types-close-btn');
+  const spotTypeColorInput = document.getElementById('spot-type-color');
+  const spotTypeColorHex   = document.getElementById('spot-type-color-hex');
+
+  /* Icons ticked in the spot manager form */
+  let spotDraftIcons    = ['waypoint'];
+  /* Id being edited, or null when creating a new spot type */
+  let editingSpotTypeId = null;
+
+  function renderSpotBuiltinGrid() {
+    $('spot-types-builtin-grid').innerHTML = builtinSpotTypeList().map(t =>
+      '<div class="types-builtin-chip">' +
+        '<span class="types-chip-icon" style="color:' + t.color + ';">' + svgForIcon(t.icons[0]) + '</span>' +
+        '<span>' + t.label + '</span>' +
+      '</div>'
+    ).join('');
+  }
+
+  function renderCustomSpotTypeList() {
+    const el = $('spot-types-custom-list');
+    if (!customSpotTypes.length) {
+      el.innerHTML = '<div class="types-custom-empty">No custom spot types yet. Create one below \u2014 ' +
+        'give it a name, pick its icons and choose a colour.</div>';
+      return;
+    }
+
+    el.innerHTML = customSpotTypes.map(t => {
+      const used = spotTypeInUse(t.id);
+      const iconNames = t.icons.map(k => ICON_LABEL[k] || k).join(', ');
+      return (
+        '<div class="types-custom-row' + (t.id === editingSpotTypeId ? ' editing' : '') + '" data-id="' + t.id + '">' +
+          '<span class="types-chip-icon" style="color:' + t.color + ';">' + svgForIcon(t.icons[0]) + '</span>' +
+          '<div class="types-row-info">' +
+            '<div class="types-row-name">' + esc(t.label) + '</div>' +
+            '<div class="types-row-meta">' + iconNames + ' \u00B7 ' + t.color +
+              (used ? ' \u00B7 ' + used + ' in use' : ' \u00B7 unused') +
+            '</div>' +
+          '</div>' +
+          '<div class="types-row-btns">' +
+            '<button type="button" class="spot-type-edit-btn" title="Edit" aria-label="Edit ' + esc(t.label) + '" data-id="' + t.id + '">' + UI_GLYPH.copy + '</button>' +
+            '<button type="button" class="spot-type-del-btn" title="Delete" aria-label="Delete ' + esc(t.label) + '" data-id="' + t.id + '">' + UI_GLYPH.trash + '</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+
+    el.querySelectorAll('.spot-type-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => beginEditCustomSpotType(btn.dataset.id));
+    });
+
+    el.querySelectorAll('.spot-type-del-btn').forEach(btn => {
+      btn.addEventListener('click', () => removeCustomSpotType(btn.dataset.id));
+    });
+  }
+
+  function renderSpotIconPicker() {
+    const el = $('spot-type-icon-picker');
+    el.innerHTML = Object.keys(ICON_SVG).map(key =>
+      '<button type="button" class="type-icon-opt' + (spotDraftIcons.indexOf(key) !== -1 ? ' selected' : '') +
+      '" data-icon="' + key + '" aria-pressed="' + (spotDraftIcons.indexOf(key) !== -1 ? 'true' : 'false') + '">' +
+        svgForIcon(key) +
+        '<span>' + (ICON_LABEL[key] || key) + '</span>' +
+      '</button>'
+    ).join('');
+
+    el.querySelectorAll('.type-icon-opt').forEach(btn => {
+      btn.addEventListener('click', () => toggleSpotDraftIcon(btn.dataset.icon));
+    });
+  }
+
+  function toggleSpotDraftIcon(key) {
+    const at = spotDraftIcons.indexOf(key);
+
+    if (at !== -1) {
+      if (spotDraftIcons.length === 1) {
+        setStatus('A spot type needs at least one icon.', 'warn');
+        return;
+      }
+      spotDraftIcons.splice(at, 1);
+    } else {
+      if (spotDraftIcons.length >= 3) {
+        setStatus('You can pick at most 3 icons per type.', 'warn');
+        return;
+      }
+      spotDraftIcons.push(key);
+    }
+
+    renderSpotIconPicker();
+    updateSpotTypePreview();
+  }
+
+  function updateSpotTypePreview() {
+    const color = spotTypeColorInput.value;
+    const name = $('spot-type-label').value.trim() || 'New spot type';
+
+    $('spot-type-preview').innerHTML = spotDraftIcons.length === 1
+      ? buildSpotBadgeHTML(spotDraftIcons[0], color)
+      : '<div style="display:flex;gap:4px">' +
+          spotDraftIcons.map(k => buildSpotBadgeHTML(k, color)).join('') +
+        '</div>';
+
+    $('spot-type-preview-hint').innerHTML = '<b>' + esc(name) + '</b> \u00B7 ' +
+      spotDraftIcons.length + ' icon' + (spotDraftIcons.length > 1 ? 's' : '') +
+      ' \u00B7 ' + color;
+  }
+
+  function resetSpotTypeForm() {
+    editingSpotTypeId = null;
+    spotDraftIcons = ['waypoint'];
+    $('spot-type-label').value = '';
+    spotTypeColorInput.value = '#38BDF8';
+    spotTypeColorHex.value = '#38BDF8';
+    $('spot-types-form-title').textContent = 'Create a spot type';
+    $('spot-types-form-pill').textContent = 'New';
+    $('spot-type-save-btn').textContent = 'Create type';
+    renderSpotIconPicker();
+    updateSpotTypePreview();
+    renderCustomSpotTypeList();
+  }
+
+  function beginEditCustomSpotType(id) {
+    const t = customSpotTypes.find(x => x.id === id);
+    if (!t) return;
+
+    editingSpotTypeId = id;
+    spotDraftIcons = t.icons.slice();
+    $('spot-type-label').value = t.label;
+    spotTypeColorInput.value = t.color;
+    spotTypeColorHex.value = t.color;
+    $('spot-types-form-title').textContent = 'Edit spot type';
+    $('spot-types-form-pill').textContent = 'Editing';
+    $('spot-type-save-btn').textContent = 'Save changes';
+
+    renderSpotIconPicker();
+    updateSpotTypePreview();
+    renderCustomSpotTypeList();
+    $('spot-type-label').focus();
+  }
+
+  function saveSpotTypeFromForm() {
+    const label = $('spot-type-label').value.trim();
+    if (!label) {
+      setStatus('Give the spot type a name first.', 'warn');
+      $('spot-type-label').focus();
+      return;
+    }
+
+    const clash = customSpotTypes.some(t =>
+      t.label.toLowerCase() === label.toLowerCase() && t.id !== editingSpotTypeId);
+    if (clash) {
+      setStatus('You already have a custom spot type called "' + label + '".', 'warn');
+      return;
+    }
+
+    const saved = upsertCustomSpotType({
+      id: editingSpotTypeId,
+      label,
+      icons: spotDraftIcons.slice(),
+      color: spotTypeColorInput.value
+    });
+
+    if (!saved) { setStatus('Could not save that spot type.', 'err'); return; }
+
+    const wasEditing = !!editingSpotTypeId;
+    resetSpotTypeForm();
+    renderSpotBuiltinGrid();
+    renderSpotTypeSelect();
+
+    /* Select the new / edited type so the user sees the result straight away */
+    $('spot-type').value = saved.id;
+    populateSpotIconOptions();
+    applySpotTypeColour();
+    updateSpotPreview();
+
+    setStatus((wasEditing ? 'Updated' : 'Created') + ' spot type: ' + saved.label, 'ok');
+  }
+
+  async function removeCustomSpotType(id) {
+    const t = customSpotTypes.find(x => x.id === id);
+    if (!t) return;
+
+    const used = spotTypeInUse(id);
+    const fallback = BUILTIN_SPOT_TYPES[DEFAULT_SPOT_TYPE].label;
+
+    const html = used
+      ? '<p><b>' + esc(t.label) + '</b> is used by <b>' + used + ' spot point' + (used > 1 ? 's' : '') +
+        '</b> on the map right now.</p>' +
+        '<p>They will be reassigned to <b>' + esc(fallback) + '</b> and keep their names, details and positions.</p>'
+      : '<p>The custom spot type <b>' + esc(t.label) + '</b> will be removed.</p>';
+
+    const ok = await askConfirm({
+      title: 'Delete this spot type?',
+      subtitle: used ? 'Spot points using it will be reassigned.' : 'It is not in use.',
+      html,
+      note: 'The type is removed from this browser and from any file you export later.',
+      confirmLabel: 'Delete type'
+    });
+    if (!ok) return;
+
+    const res = deleteCustomSpotType(id);
+
+    resetSpotTypeForm();
+    renderSpotBuiltinGrid();
+    renderSpotTypeSelect();
+
+    /* Repaint anything that was pointing at the deleted type */
+    redrawSpots();
+    renderSpotList();
+    populateSpotIconOptions();
+    updateSpotPreview();
+    saveMarkings();
+    updateDataStatus();
+
+    setStatus(
+      res.removed
+        ? 'Deleted spot type: ' + t.label +
+          (res.moved ? ' \u00B7 ' + res.moved + ' spot point' + (res.moved > 1 ? 's' : '') + ' reassigned to ' + fallback : '') + '.'
+        : 'That spot type was not found.',
+      res.removed ? 'ok' : 'warn');
+  }
+
+  /* ---- wiring ---- */
+  $('spot-types-manage-btn').addEventListener('click', () => {
+    resetSpotTypeForm();
+    renderSpotBuiltinGrid();
+    renderCustomSpotTypeList();
+    renderSpotTypeSelect();
+    openModal(spotTypesModal);
+  });
+
+  spotTypesClose.addEventListener('click', () => closeModal(spotTypesModal));
+  spotTypesCloseBtn.addEventListener('click', () => closeModal(spotTypesModal));
+  spotTypesModal.addEventListener('click', (e) => {
+    if (e.target === spotTypesModal) closeModal(spotTypesModal);
+  });
+
+  $('spot-type-save-btn').addEventListener('click', saveSpotTypeFromForm);
+  $('spot-type-cancel-btn').addEventListener('click', resetSpotTypeForm);
+  $('spot-type-label').addEventListener('input', updateSpotTypePreview);
+  $('spot-type-label').addEventListener('keydown', e => { if (e.key === 'Enter') saveSpotTypeFromForm(); });
+
+  syncColor(spotTypeColorInput, spotTypeColorHex);
+  spotTypeColorInput.addEventListener('input', updateSpotTypePreview);
+  spotTypeColorHex.addEventListener('input', () => {
+    if (/^#[0-9a-fA-F]{6}$/.test(spotTypeColorHex.value.trim())) updateSpotTypePreview();
+  });
+
+  /* ============================================================
      25. PRINTABLE REPORT & PNG EXPORT
      ============================================================ */
   /* One projection and one set of overlay painters feed both outputs, so the
@@ -2875,16 +4079,20 @@
     '250000', '500000', '1000000', '2000000', '5000000', '10000000'
   ];
   const exportPrefs = {
-    frame: 'all',           // all | view | deployments | zones | indicator
+    frame: 'all',           // all | view | deployments | spots | zones | indicator
     mapType: 'screen',      // screen | standard | satellite | terrain | humanitarian
     orientation: 'north',   // north (north up) | fit (rotate onto the plan's long axis)
     scale: 'auto',          // auto (frame the plan) | a representative fraction, e.g. '25000'
     scaleUnits: 'both',     // both | metric | imperial | none
     title: '',
     date: '',
+    /* Wrap the picture in a ZIP with its world file and projection, so the
+       PNG can be dropped straight into a GIS. On by default - the picture is
+       a real map, so it is worth carrying its georeferencing with it. */
+    geoPng: true,
     /* What the Download dialog puts on the sheet or picture. The JSON export
        ignores this - a file is meant to be re-imported losslessly. */
-    include: { map: true, scale: true, north: true, deployments: true, zones: true }
+    include: { map: true, scale: true, north: true, deployments: true, spots: true, zones: true }
   };
 
   function loadExportPrefs() {
@@ -2892,7 +4100,7 @@
       const raw = localStorage.getItem(EXPORT_PREFS_KEY);
       if (!raw) return;
       const d = JSON.parse(raw) || {};
-      if (['all', 'view', 'deployments', 'zones', 'indicator'].indexOf(d.frame) !== -1) exportPrefs.frame = d.frame;
+      if (['all', 'view', 'deployments', 'spots', 'zones', 'indicator'].indexOf(d.frame) !== -1) exportPrefs.frame = d.frame;
       if (['both', 'metric', 'imperial', 'none'].indexOf(d.scaleUnits) !== -1) exportPrefs.scaleUnits = d.scaleUnits;
       if (['screen', 'standard', 'satellite', 'terrain', 'humanitarian'].indexOf(d.mapType) !== -1) exportPrefs.mapType = d.mapType;
       if (SCALE_CHOICES.indexOf(String(d.scale)) !== -1) exportPrefs.scale = String(d.scale);
@@ -2901,8 +4109,11 @@
       if (d.orientation === undefined && typeof d.rotate === 'boolean') exportPrefs.orientation = d.rotate ? 'fit' : 'north';
       exportPrefs.title = String(d.title || '').slice(0, 60);
       exportPrefs.date = /^\d{4}-\d{2}-\d{2}$/.test(d.date || '') ? d.date : '';
+      /* Older builds had no georeferenced PNG, so an absent value keeps the
+         new default (on) rather than silently turning it off. */
+      if (typeof d.geoPng === 'boolean') exportPrefs.geoPng = d.geoPng;
       if (d.include && typeof d.include === 'object') {
-        ['map', 'scale', 'north', 'deployments', 'zones'].forEach(k => {
+        ['map', 'scale', 'north', 'deployments', 'spots', 'zones'].forEach(k => {
           if (typeof d.include[k] === 'boolean') exportPrefs.include[k] = d.include[k];
         });
       }
@@ -3042,6 +4253,9 @@
     if (f === 'deployments' || f === 'all') {
       markings.deployments.forEach(d => pts.push({ lat: d.lat, lon: d.lon }));
     }
+    if (f === 'spots' || f === 'all') {
+      markings.spots.forEach(s => { if (validSpot(normaliseSpot(s))) pts.push({ lat: s.lat, lon: s.lon }); });
+    }
     if (f === 'zones' || f === 'all') {
       markings.zones.forEach(z => (z.vertices || []).forEach(v => pts.push({ lat: v.lat, lon: v.lng })));
     }
@@ -3054,9 +4268,10 @@
   function frameEmptyMessage() {
     return {
       deployments: 'No deployments placed yet \u2014 place some, or pick a different frame.',
+      spots: 'No spot points marked yet \u2014 mark some, or pick a different frame.',
       zones: 'No zones drawn yet \u2014 draw some, or pick a different frame.',
       indicator: 'No map indicator yet \u2014 select a location, or pick a different frame.',
-      all: 'Nothing to export yet \u2014 add a map indicator, deployment or zone.'
+      all: 'Nothing to export yet \u2014 add a map indicator, deployment, spot point or zone.'
     }[exportPrefs.frame] || 'Nothing to export yet.';
   }
 
@@ -3506,6 +4721,31 @@
     });
   }
 
+  /* Spot points: a ringed circle with a letter, so a spot reads differently
+     from the square numbered pin a deployment gets. The letters match the
+     Spot Points table in the sheet and in the PDF. */
+  function drawSpots(ctx, proj) {
+    markings.spots.forEach((s, i) => {
+      if (!validSpot(normaliseSpot(s))) return;
+      const p = proj.project(s.lat, s.lon);
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = s.color;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+      ctx.fillStyle = s.color;
+      ctx.fill();
+
+      drawTag(ctx, p.x, p.y + 28, spotLetter(i) + '  ' + (s.name || spotTypeLabel(s.type)), s.color);
+    });
+  }
+
   /* Numbered pins so the report table and the image cross-reference. */
   function drawDeployments(ctx, proj) {
     markings.deployments.forEach((d, i) => {
@@ -3678,6 +4918,7 @@
 
     drawZones(ctx, proj);
     drawDeployments(ctx, proj);
+    drawSpots(ctx, proj);
     drawScaleBar(ctx, proj, mid.lat);
     drawNorthArrow(ctx, proj);
     drawAttribution(ctx, usedTiles);
@@ -3686,7 +4927,9 @@
       canvas, usedTiles, rot, zoom, cropped,
       centerLat: mid.lat,
       tilesWanted: lastTileGaps.total,
-      tilesMissing: lastTileGaps.missing
+      tilesMissing: lastTileGaps.missing,
+      /* The pixel-to-map mapping, ready for the world file. */
+      world: computeWorldFile(proj)
     };
   }
 
@@ -3699,6 +4942,7 @@
        tables drop out entirely rather than printing as empty headings. */
     $('report-figure').style.display = exportPrefs.include.map ? '' : 'none';
     $('report-deployments-block').style.display = exportPrefs.include.deployments ? '' : 'none';
+    $('report-spots-block').style.display = exportPrefs.include.spots ? '' : 'none';
     $('report-zones-block').style.display = exportPrefs.include.zones ? '' : 'none';
 
     /* One landscape page is the promise the copy makes. Past 4 rows the tables are
@@ -3707,6 +4951,7 @@
        Past ~16 rows the tables cannot share a page with a readable map at all,
        so we stop compacting and let the sheet run onto a second page. */
     const rows = (exportPrefs.include.deployments ? markings.deployments.length : 0) +
+                 (exportPrefs.include.spots ? markings.spots.length : 0) +
                  (exportPrefs.include.zones ? markings.zones.length : 0);
     const sheet = document.querySelector('.report-sheet');
     sheet.classList.toggle('is-dense', rows > 4 && rows <= 16);
@@ -3720,9 +4965,10 @@
     $('report-sub').textContent = bits.join(' \u00B7 ');
 
     const scope = {
-      all: 'All deployments, zones and the map indicator',
+      all: 'All deployments, spot points, zones and the map indicator',
       view: 'The area visible on the map at export time',
       deployments: 'Deployments only',
+      spots: 'Spot points only',
       zones: 'Zones only',
       indicator: 'The map indicator only'
     }[exportPrefs.frame];
@@ -3735,6 +4981,7 @@
     $('report-utm').textContent    = hasInd ? $('o-utm').textContent : '\u2014';
 
     $('report-dep-count').textContent = '(' + markings.deployments.length + ')';
+    $('report-spot-count').textContent = '(' + markings.spots.length + ')';
     $('report-zone-count').textContent = '(' + markings.zones.length + ')';
 
     $('report-deployments-body').innerHTML = markings.deployments.length
@@ -3753,6 +5000,22 @@
           '</tr>';
         }).join('')
       : '<tr><td colspan="9" class="report-empty">No deployments in this plan.</td></tr>';
+
+    $('report-spots-body').innerHTML = markings.spots.length
+      ? markings.spots.map((s, i) => {
+          normaliseSpot(s);
+          const u = latLonToUtm(s.lat, s.lon);
+          return '<tr>' +
+            '<td class="num">' + spotLetter(i) + '</td>' +
+            '<td><span class="swatch" style="background:' + esc(s.color) + '"></span>' + (esc(s.name) || '\u2014') + '</td>' +
+            '<td>' + esc(spotTypeLabel(s.type)) + '</td>' +
+            '<td>' + (esc(s.details) || '\u2014') + '</td>' +
+            '<td class="mono">' + Number(s.lat).toFixed(5) + ', ' + Number(s.lon).toFixed(5) + '</td>' +
+            '<td class="mono">' + esc(fmtUtm(u)) + '</td>' +
+            '<td class="mono">' + esc(safeMgrs(s.lat, s.lon, 4)) + '</td>' +
+          '</tr>';
+        }).join('')
+      : '<tr><td colspan="7" class="report-empty">No spot points in this plan.</td></tr>';
 
     $('report-zones-body').innerHTML = markings.zones.length
       ? markings.zones.map((z, i) => {
@@ -3813,6 +5076,7 @@
         ' base map tiles failed to load, leaving blank patches.');
     }
     bits.push('Numbered pins correspond to the deployments table.');
+    if (markings.spots.length) bits.push('Lettered circles correspond to the Spot Points table.');
     return bits.join(' ');
   }
 
@@ -3976,17 +5240,20 @@
     ['scale', 'saveop-scale'],
     ['north', 'saveop-north'],
     ['deployments', 'saveop-deployments'],
+    ['spots', 'saveop-spots'],
     ['zones', 'saveop-zones']
   ];
 
   const FORMAT_BUTTONS = {
     json: 'saveop-fmt-json',
+    geojson: 'saveop-fmt-geojson',
     pdf: 'saveop-fmt-pdf',
     png: 'saveop-fmt-png'
   };
 
   const GO_LABEL = {
     json: 'Download JSON',
+    geojson: 'Download GeoJSON',
     pdf: 'Download PDF',
     png: 'Download PNG'
   };
@@ -4012,9 +5279,11 @@
 
     const isJson  = saveOpFormat === 'json';
     const isPng   = saveOpFormat === 'png';
-    /* A JSON file is always complete, so neither option group applies to it. */
-    $('saveop-map-opts').classList.toggle('is-hidden', isJson);
-    $('saveop-include').classList.toggle('is-hidden', isJson);
+    /* A data file is always complete - both the JSON and the GeoJSON carry every
+       marking and its coordinates - so neither option group applies to them. */
+    const isData  = isJson || saveOpFormat === 'geojson';
+    $('saveop-map-opts').classList.toggle('is-hidden', isData);
+    $('saveop-include').classList.toggle('is-hidden', isData);
     /* The table ticks only mean something when there is a table to print. */
     $('saveop-include').querySelectorAll('.is-table-only').forEach(el => {
       el.classList.toggle('is-hidden', isPng);
@@ -4024,15 +5293,17 @@
 
   function refreshSaveOpSummary() {
     const nd = markings.deployments.length;
+    const ns = markings.spots.length;
     const nz = markings.zones.length;
     const hasInd = validIndicator(savedIndicator);
     const bits = [];
     if (hasInd) bits.push('<b>1</b> map indicator');
     if (nd) bits.push('<b>' + nd + '</b> deployment' + (nd === 1 ? '' : 's'));
+    if (ns) bits.push('<b>' + ns + '</b> spot point' + (ns === 1 ? '' : 's'));
     if (nz) bits.push('<b>' + nz + '</b> zone' + (nz === 1 ? '' : 's'));
     $('saveop-summary').innerHTML = bits.length
       ? 'This plan holds ' + bits.join(', ') + '.'
-      : 'Nothing has been placed yet \u2014 search a location, place deployments or draw a zone first.';
+      : 'Nothing has been placed yet \u2014 search a location, place deployments, mark spot points or draw a zone first.';
 
     /* Name the base map that "same as the screen" currently resolves to, so the
        option reads as a real choice rather than a mystery. */
@@ -4059,12 +5330,17 @@
       return;
     }
 
+    if (saveOpFormat === 'geojson') {
+      exportGeoJsonFile();
+      return;
+    }
+
     readIncludeFromInputs();
 
     /* The picture options have to be on for a PDF or PNG. A file with nothing
        to draw would come out blank, which reads as a bug rather than a choice. */
     const applicable = saveOpFormat === 'png'
-      ? INCLUDE_FIELDS.filter(([k]) => k !== 'deployments' && k !== 'zones')
+      ? INCLUDE_FIELDS.filter(([k]) => k !== 'deployments' && k !== 'spots' && k !== 'zones')
       : INCLUDE_FIELDS;
     if (!applicable.some(([key]) => exportPrefs.include[key])) {
       setStatus('Tick at least one item to include in the download.', 'warn');
@@ -4104,8 +5380,190 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function planBaseName() {
+    return 'gis-helper-plan-' + new Date().toISOString().slice(0, 10);
+  }
+
   function planFileName(ext) {
-    return 'gis-helper-plan-' + new Date().toISOString().slice(0, 10) + '.' + ext;
+    return planBaseName() + '.' + ext;
+  }
+
+  /* ============================================================
+     25b. GEOREFERENCING THE PNG
+     ------------------------------------------------------------
+     The picture is painted from Web Mercator (EPSG:3857) tiles at a
+     known zoom, so every pixel of it sits at a known place on the
+     earth. A world file states that mapping, and ArcGIS, ArcGIS Pro,
+     QGIS, GDAL and Global Mapper all read one from beside the image -
+     which is what turns the PNG from a picture into a layer.
+
+     The six affine terms are measured off the picture's own projector
+     rather than derived on paper, so they stay right when "Rotate to
+     fit" spins the plan: a rotated plan needs non-zero rotation terms,
+     and the world file format has them.
+     ============================================================ */
+
+  /* Half the equator in metres - the extent of the Web Mercator square. */
+  const MERC_HALF = 20037508.342789244;
+
+  /* The projection, as an ESRI .prj, for the readers that would rather be
+     told than left to assume Web Mercator. */
+  const MERC_PRJ = 'PROJCS["WGS_1984_Web_Mercator_Auxiliary_Sphere",' +
+    'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],' +
+    'PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],' +
+    'PROJECTION["Mercator_Auxiliary_Sphere"],PARAMETER["False_Easting",0.0],' +
+    'PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",0.0],' +
+    'PARAMETER["Standard_Parallel_1",0.0],PARAMETER["Auxiliary_Sphere_Type",0.0],' +
+    'UNIT["Meter",1.0]]';
+
+  /* Where one canvas pixel centre sits, in EPSG:3857 metres. */
+  function canvasPixelToMercator(proj, px, py) {
+    const ll   = proj.unproject(px, py);
+    const q    = worldPx(ll.lat, ll.lon, proj.zoom);
+    const span = 256 * Math.pow(2, proj.zoom);
+    return {
+      e: (q.x / span - 0.5) * 2 * MERC_HALF,
+      n: (0.5 - q.y / span) * 2 * MERC_HALF
+    };
+  }
+
+  /* A world file places the CENTRE of the top-left pixel, so the three sample
+     points are pixel centres and not corners. */
+  function computeWorldFile(proj) {
+    const o  = canvasPixelToMercator(proj, 0.5, 0.5);
+    const px = canvasPixelToMercator(proj, 1.5, 0.5);
+    const py = canvasPixelToMercator(proj, 0.5, 1.5);
+    return {
+      a: px.e - o.e,
+      d: px.n - o.n,
+      b: py.e - o.e,
+      e: py.n - o.n,
+      c: o.e,
+      f: o.n
+    };
+  }
+
+  /* A, D, B, E, C, F - one per line, exactly as the format asks. */
+  function worldFileText(w) {
+    const line = n => (Math.abs(n) < 1e-9 ? 0 : n).toFixed(10);
+    return [line(w.a), line(w.d), line(w.b), line(w.e), line(w.c), line(w.f)].join('\n') + '\n';
+  }
+
+  /* ---- a minimal ZIP writer (stored entries, no compression) ----
+     A ZIP is what keeps the picture, its world file and its projection
+     together in one download: three separate saves would need three clicks
+     and a browser may refuse the ones after the first. Nothing is
+     compressed - a PNG already is, and the two text files are a few hundred
+     bytes - so only the container work is needed: a local header, a central
+     directory entry and one end record. */
+  const CRC32_TABLE = (() => {
+    const t = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) {
+      let c = i;
+      for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[i] = c >>> 0;
+    }
+    return t;
+  })();
+
+  function crc32(bytes) {
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) c = CRC32_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function zipEntries(files) {
+    const enc     = new TextEncoder();
+    const chunks  = [];
+    const central = [];
+    let offset = 0;
+
+    const u16 = v => new Uint8Array([v & 0xFF, (v >>> 8) & 0xFF]);
+    const u32 = v => new Uint8Array([v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF]);
+
+    const now = new Date();
+    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+    const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+
+    files.forEach(f => {
+      const name = enc.encode(f.name);
+      const data = f.data;
+      const crc  = crc32(data);
+      const start = offset;
+
+      /* Version 2.0, bit 11 set (names are UTF-8), method 0 (stored). */
+      const parts = [
+        u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(dosTime), u16(dosDate),
+        u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), name, data
+      ];
+      parts.forEach(p => { chunks.push(p); offset += p.length; });
+
+      central.push({ name, crc, size: data.length, start });
+    });
+
+    const cdStart = offset;
+    central.forEach(e => {
+      const parts = [
+        u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(dosTime), u16(dosDate),
+        u32(e.crc), u32(e.size), u32(e.size),
+        u16(e.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(e.start), e.name
+      ];
+      parts.forEach(p => { chunks.push(p); offset += p.length; });
+    });
+
+    [u32(0x06054b50), u16(0), u16(0), u16(central.length), u16(central.length),
+     u32(offset - cdStart), u32(cdStart), u16(0)].forEach(p => { chunks.push(p); offset += p.length; });
+
+    return new Blob(chunks, { type: 'application/zip' });
+  }
+
+  function canvasToPngBytes(canvas) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (!blob) { reject(new Error('the browser could not encode the PNG')); return; }
+        blob.arrayBuffer().then(buf => resolve(new Uint8Array(buf)), reject);
+      }, 'image/png');
+    });
+  }
+
+  /* The picture plus everything a GIS wants beside it, in one download. */
+  async function buildGeoPngZip(res) {
+    const base = planBaseName();
+    const enc  = new TextEncoder();
+    const png  = await canvasToPngBytes(res.canvas);
+
+    const denom = exportPrefs.scale === 'auto'
+      ? effectiveScale(res.zoom, res.centerLat)
+      : +exportPrefs.scale;
+
+    const note = [
+      base + '.png  \u2014 the picture, ' + EXPORT_W + '\u00D7' + EXPORT_H + ' pixels',
+      base + '.pgw  \u2014 its world file: the affine mapping from pixel to map',
+      base + '.prj  \u2014 the projection it is in, EPSG:3857 (WGS 84 Web Mercator)',
+      '',
+      'Open the .png in ArcGIS, ArcGIS Pro, QGIS, Global Mapper or any other GIS',
+      'that reads a world file. Keep the three files together and the image lines',
+      'up with every other layer you have in Web Mercator.',
+      '',
+      'Projection   EPSG:3857 \u2014 WGS 84 / Pseudo-Mercator (metres)',
+      'Scale        ' + scaleLabel(denom),
+      'Rotation     ' + (Math.abs(res.rot) > 0.0001
+        ? Math.abs(res.rot * 180 / Math.PI).toFixed(2) + '\u00B0 ' + (res.rot < 0 ? 'west' : 'east') +
+          ' of north \u2014 carried by the rotation terms in the world file'
+        : 'north up'),
+      'Base map     ' + (res.usedTiles ? layerLabel(exportLayerName()) : 'schematic coordinate grid'),
+      '',
+      'Positions are WGS 84. Deployments are the numbered pins, spot points are' + '\n' +
+      'the lettered circles; both are listed in the PDF sheet and in the JSON.',
+      ''
+    ].join('\n');
+
+    return zipEntries([
+      { name: base + '.png',          data: png },
+      { name: base + '.pgw',          data: enc.encode(worldFileText(res.world)) },
+      { name: base + '.prj',          data: enc.encode(MERC_PRJ) },
+      { name: base + ' READ ME.txt',  data: enc.encode(note) }
+    ]);
   }
 
   async function downloadPlanPng() {
@@ -4113,13 +5571,21 @@
     try {
       const res = await buildExportCanvas();
       if (!res) return;
-      res.canvas.toBlob(blob => {
-        if (!blob) { setStatus('Could not create the PNG file.', 'err'); return; }
-        downloadBlob(blob, planFileName('png'));
-        const gap = res.usedTiles ? tileGapNote(lastTileGaps) : '';
-        setStatus(gap || ('Plan exported as PNG' + (res.usedTiles ? '' : ' (schematic)') + '.'),
-          gap ? 'warn' : 'ok');
-      }, 'image/png');
+
+      const gap = res.usedTiles ? tileGapNote(lastTileGaps) : '';
+
+      if (exportPrefs.geoPng) {
+        const zip = await buildGeoPngZip(res);
+        downloadBlob(zip, planBaseName() + '.zip');
+        setStatus(gap || ('Georeferenced PNG exported \u2014 ' + planBaseName() + '.zip holds the picture, ' +
+          'its .pgw world file and its .prj (EPSG:3857).'), gap ? 'warn' : 'ok');
+        return;
+      }
+
+      const bytes = await canvasToPngBytes(res.canvas);
+      downloadBlob(new Blob([bytes], { type: 'image/png' }), planFileName('png'));
+      setStatus(gap || ('Plan exported as PNG' + (res.usedTiles ? '' : ' (schematic)') + '.'),
+        gap ? 'warn' : 'ok');
     } catch (e) {
       setStatus('Could not export the PNG: ' + e.message, 'err');
     }
@@ -4314,6 +5780,19 @@
     { label: 'MGRS 8', w: 210, size: 7.2 }
   ];
 
+  /* Spot points carry the two coordinate systems the layer exists for - the
+     latitude / longitude and the projected ArcGIS XY - so both are columns of
+     their own rather than one packed cell. */
+  const SPOT_COLS = [
+    { label: '#', w: 20, right: true },
+    { label: 'Name', w: 104 },
+    { label: 'Spot type', w: 86 },
+    { label: 'Details', w: 130, size: 7.2 },
+    { label: 'Lat / Lon', w: 150, size: 7.2 },
+    { label: 'ArcGIS XY (UTM E / N)', w: 168, size: 7.2 },
+    { label: 'MGRS 8', w: 124, size: 7.2 }
+  ];
+
   function colsWidth(cols) {
     return cols.reduce((sum, c) => sum + c.w, 0);
   }
@@ -4471,15 +5950,38 @@
         ];
       });
       const cols = colsToFit(DEP_COLS, rows);
-      blocks.push({ kind: 'heading', h: 34, text: 'Deployments (' + markings.deployments.length + ')' });
+      blocks.push({ kind: 'heading', h: 16, text: 'Deployments (' + markings.deployments.length + ')' });
       rows.forEach((cells, i) => {
         blocks.push({
           kind: 'row', h: PDF_ROW_H + PDF_ROW_GAP, table: 'dep',
           cols, banded: i % 2 === 1, cells
         });
       });
-      if (!markings.deployments.length) blocks.push({ kind: 'note', h: 16, text: 'No deployments in this plan.' });
-      else blocks.push({ kind: 'gap', h: 12 });
+      if (!markings.deployments.length) blocks.push({ kind: 'note', h: 12, text: 'No deployments in this plan.' });
+      else blocks.push({ kind: 'gap', h: 8 });
+    }
+
+    if (exportPrefs.include.spots) {
+      const rows = markings.spots.map((s, i) => {
+        normaliseSpot(s);
+        const u = latLonToUtm(s.lat, s.lon);
+        return [
+          spotLetter(i), s.name || '', spotTypeLabel(s.type), s.details || '',
+          Number(s.lat).toFixed(5) + ', ' + Number(s.lon).toFixed(5),
+          fmtUtm(u),
+          safeMgrs(s.lat, s.lon, 4)
+        ];
+      });
+      const cols = colsToFit(SPOT_COLS, rows);
+      blocks.push({ kind: 'heading', h: 16, text: 'Spot Points (' + markings.spots.length + ')' });
+      rows.forEach((cells, i) => {
+        blocks.push({
+          kind: 'row', h: PDF_ROW_H + PDF_ROW_GAP, table: 'spot',
+          cols, banded: i % 2 === 1, cells
+        });
+      });
+      if (!markings.spots.length) blocks.push({ kind: 'note', h: 12, text: 'No spot points in this plan.' });
+      else blocks.push({ kind: 'gap', h: 8 });
     }
 
     if (exportPrefs.include.zones) {
@@ -4492,15 +5994,15 @@
         ];
       });
       const cols = colsToFit(ZONE_COLS, rows);
-      blocks.push({ kind: 'heading', h: 34, text: 'Zones (' + markings.zones.length + ')' });
+      blocks.push({ kind: 'heading', h: 16, text: 'Zones (' + markings.zones.length + ')' });
       rows.forEach((cells, i) => {
         blocks.push({
           kind: 'row', h: PDF_ROW_H + PDF_ROW_GAP, table: 'zone',
           cols, banded: i % 2 === 1, cells
         });
       });
-      if (!markings.zones.length) blocks.push({ kind: 'note', h: 16, text: 'No zones in this plan.' });
-      else blocks.push({ kind: 'gap', h: 12 });
+      if (!markings.zones.length) blocks.push({ kind: 'note', h: 12, text: 'No zones in this plan.' });
+      else blocks.push({ kind: 'gap', h: 8 });
     }
 
     return blocks;
@@ -4519,9 +6021,10 @@
       : 'Map scale: ' + scaleLabel(+exportPrefs.scale));
     bits.push(exportPrefs.orientation === 'fit' ? 'North facing: rotate to fit' : 'North facing: north up');
     const scope = {
-      all: 'All deployments, zones and the map indicator',
+      all: 'All deployments, spot points, zones and the map indicator',
       view: 'The area visible on the map at export time',
       deployments: 'Deployments only',
+      spots: 'Spot points only',
       zones: 'Zones only',
       indicator: 'The map indicator only'
     }[exportPrefs.frame];
@@ -4532,6 +6035,11 @@
     ops.push(pdfLineOp(PDF_M, PDF_H - 56, PDF_W - PDF_M, PDF_H - 56));
     ops.push(pdfTextOp(PDF_M, 24, 7.5,
       'Produced with GIS Helper \u2014 no account, no server. Positions are WGS 84.', false, C_MUTED));
+    /* A PDF is a sheet rather than a layer, so the projection the picture is
+       in is named on the sheet itself. */
+    ops.push(pdfTextOp(PDF_M, 34, 7.5,
+      'Picture projection: EPSG:3857 (WGS 84 Web Mercator). Export the PNG form to get the ' +
+      'matching .pgw world file.', false, C_MUTED));
     ops.push(pdfTextOp(PDF_W - PDF_M, 24, 7.5, 'Page ' + pageNo + ' of ' + pageCount, false, C_MUTED));
     return ops;
   }
@@ -4797,12 +6305,16 @@
      26. BOOT
      ============================================================ */
   loadCustomTypes();
+  loadCustomSpotTypes();
   loadMarkingsFromStorage();
   loadExportPrefs();
   initPrefControls();
   renderTypeSelect();
+  renderSpotTypeSelect();
   populateIconOptions();
+  populateSpotIconOptions();
   updateDeployPreview();
+  updateSpotPreview();
 
   /* Restore the last session if there is one; otherwise open on the default view. */
   const restored = validIndicator(savedIndicator);
@@ -4817,11 +6329,53 @@
   applyMarkingsToMap();
   updateDataStatus();
 
-  const markingCount = markings.deployments.length + markings.zones.length;
+  const markingCount = markings.deployments.length + markings.spots.length + markings.zones.length;
   setStatus(
     restored || markingCount
       ? 'Ready \u00B7 restored ' + (restored ? '1 map indicator' : 'no map indicator') +
         (markingCount ? ' and ' + markingCount + ' marking' + (markingCount === 1 ? '' : 's') : '')
       : 'Ready');
+
+  /* Top bar toggles to focus corresponding side panels */
+  const toggleDeploy = $('deploy-toggle') || deployToggle;
+  const toggleSpot = $('spot-toggle') || spotToggle;
+  const toggleZone = $('zone-toggle') || zoneToggle;
+  const cardDeploy = $('deploy-card');
+  const cardSpot = $('spot-card');
+  const cardZone = $('zone-card');
+  const sidebarEl = document.querySelector('.sidebar');
+
+  function focusCard(card) {
+    if (!card) return;
+    if (sidebarEl) {
+      const top = card.offsetTop - 8;
+      sidebarEl.scrollTo({ top, behavior: 'smooth' });
+    } else {
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    const firstInput = card.querySelector('input, select, textarea, button');
+    if (firstInput && typeof firstInput.focus === 'function') {
+      setTimeout(() => firstInput.focus(), 300);
+    }
+  }
+
+  if (toggleDeploy && cardDeploy) {
+    toggleDeploy.addEventListener('click', (e) => {
+      e.preventDefault();
+      focusCard(cardDeploy);
+    });
+  }
+  if (toggleSpot && cardSpot) {
+    toggleSpot.addEventListener('click', (e) => {
+      e.preventDefault();
+      focusCard(cardSpot);
+    });
+  }
+  if (toggleZone && cardZone) {
+    toggleZone.addEventListener('click', (e) => {
+      e.preventDefault();
+      focusCard(cardZone);
+    });
+  }
 
 })();
